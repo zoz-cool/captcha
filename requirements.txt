@@ -6,3 +6,4 @@ visdom
 pillow
 numpy
 matplotlib
+pyppeteer

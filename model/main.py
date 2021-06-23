@@ -22,7 +22,7 @@ class Model:
     def predict(x):
         """预测结果"""
         model = CTCModel(config.num_classes + 1, config.device_predict)
-        print('Load model from: ', config.model_path)
+        # print('Load model from: ', config.model_path)
         model.load_state_dict(torch.load(config.model_path, map_location=config.device_predict))
         model.eval()
 
