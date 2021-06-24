@@ -4,7 +4,7 @@
 
 import torch
 import torch.nn as nn
-from config import config
+from .config import config
 
 
 def _make_convolutional(in_channels, out_channels, kernel_size, stride=1, padding=0):

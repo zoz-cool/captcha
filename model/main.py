@@ -1,12 +1,12 @@
 """函数入口"""
 import os
 import torch
-from train import train
-from test import test
-from model import CTCModel
-from config import config
-from dataset import CaptchaLoader
-from utils import decode_output, calculate_acc
+from .train import train
+from .test import test
+from .model import CTCModel
+from .config import config
+from .dataset import CaptchaLoader
+from .utils import decode_output, calculate_acc
 from PIL import Image
 import argparse
 
@@ -67,10 +67,12 @@ if __name__ == '__main__':
     parser.add_argument('--train', help='train mode', action='store_true')
     parser.add_argument('-t', '--test', help='test mode', action='store_true')
     parser.add_argument('-p', '--predict', help='predict mode', type=str)
+    parser.add_argument('-s', '--server', help='launch train monitor server', action='store_true')
     args = parser.parse_args()
     m = Model()
-    if args.fit or args.train:
+    if args.server:
         os.popen(f"{os.path.abspath('./venv/Scripts/python.exe')} -m visdom.server")
+    elif args.fit or args.train:
         m.fit()
     elif args.test:
         m.test()

@@ -1,7 +1,7 @@
 """支持工具类"""
 
 import torch
-from config import Config as config
+from .config import config
 
 
 def decode_output(outputs):

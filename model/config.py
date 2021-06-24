@@ -16,16 +16,16 @@ class Config(object):
     classes = {c: i for i, c in enumerate(charset)}  # 通过字符查找索引
     classes.update({i: c for i, c in enumerate(charset)})  # 通过索引查找字符
     num_classes = len(charset)
-    batch_size = 16
+    batch_size = 128
     sample_size = (1, 50, 120)  # 样本大小
     num_epochs = 100
     nw = os.cpu_count()
     learning_rate = 0.001
-    model_path = os.path.join(os.path.dirname(__file__), 'model/checkpoint/captcha.ctc-model.pth')  # 训练参数保存路径
-    dataset_path = 'dataset/captcha2/'  # 数据集路径
+    model_path = os.path.join(os.path.dirname(__file__), 'model/checkpoint/captcha.ctc-model-2.pth')  # 训练参数保存路径
+    dataset_path = 'dataset/captcha/'  # 数据集路径
     # 选择设备：GPU或CPU
     device_train = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    device_test = torch.device('cpu')
+    device_test = device_train
     device_predict = torch.device('cpu')
     # 每5个epoch保存一次训练结果
     save_n_epoch = 5

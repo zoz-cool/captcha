@@ -7,12 +7,13 @@ import torch
 import visdom
 from tqdm import tqdm
 import numpy as np
-from config import config
-from model import CTCModel
+from .config import config
+from .model import CTCModel
 from torchsummary import summary
-from dataset import CaptchaLoader
+from .dataset import CaptchaLoader
 from collections import deque
-from utils import calculate_acc
+from .utils import calculate_acc
+from .test import test
 
 
 def train():
@@ -51,10 +52,17 @@ def train():
 
             global_steps += 1
             if len(running_loss) == 10:
-                vis.line([np.nanmean(running_loss)], [global_steps], win='train_loss', update='append')
-                vis.line([corr / tot], [global_steps], win='train_acc', update='append')
-            pbar.set_description_str(
-                f'loss:{np.around(np.nanmean(running_loss), 5)} acc:{np.around(corr / tot * 100, 2)}%')
+                vis.line([np.nanmean(running_loss)], [global_steps], win='train_loss', update='append',
+                         opts={'title': 'train loss', 'xlabel': 'steps', 'ylabel': 'value'})
+                vis.line([corr / tot], [global_steps], win='train_acc', update='append',
+                         opts={'title': 'train accuracy', 'xlabel': 'steps', 'ylabel': 'pct'})
+            msg = f'loss:{np.around(np.nanmean(running_loss), 5)} acc:{np.around(corr / tot * 100, 2)}%'
+            vis.text(text=msg, win='train_log', append=True, opts={'title': 'train log'})
+            pbar.set_description_str(msg)
+        # calculate test acc each epoch
+        test_acc = test(model)
+        vis.line([test_acc], [global_steps], win='test_acc', update='append',
+                 opts={'title': 'test accuracy', 'xlabel': 'steps', 'ylabel': 'pct'})
 
         # save model
         if (epoch + 1) % config.save_n_epoch == 0:

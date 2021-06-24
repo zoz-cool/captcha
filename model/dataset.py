@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 from PIL import Image
-from config import config
+from .config import config
 
 
 class CaptchaSet(Dataset):
