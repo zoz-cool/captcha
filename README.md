@@ -9,8 +9,8 @@
 
 ## 结果
 
-- 损失[sample num: 10000]：
-![损失](training_loss.svg)
+- 损失[sample num: 10000]
+![损失](train_loss.svg)
 - 测试集[sample num: 1000]正确率
 ![测试集正确率](test_accuracy.svg)
 - 训练集批次[batch_size: 128]正确率
