@@ -7,17 +7,19 @@ import torch
 import visdom
 from tqdm import tqdm
 import numpy as np
-from .config import config
-from .model import CTCModel
-from torchsummary import summary
-from .dataset import CaptchaLoader
 from collections import deque
-from .utils import calculate_acc
+from torchsummary import summary
+
 from .test import test
+from .config import Config
+from .model import CTCModel
+from .utils import calculate_acc
+from .dataset import CaptchaLoader
 
 
 def train():
     """训练模型"""
+    config = Config()
     model = CTCModel(config.num_classes + 1).to(config.device_train)
     summary(model, config.sample_size)
     criterion = torch.nn.CTCLoss(blank=config.num_classes)
@@ -31,15 +33,16 @@ def train():
         model.train()
 
     vis = visdom.Visdom(env='captcha_model')
-    trainloader = CaptchaLoader.trainloader
+    train_loader = CaptchaLoader().trainloader
     global_steps = 0
     for epoch in range(config.num_epochs):
         print(f'Epoch:{epoch + 1}/{config.num_epochs}')
-        pbar = tqdm(trainloader)
+        pbar = tqdm(train_loader)
         running_loss = deque(maxlen=10)
         for i, (images, labels, label_length) in enumerate(pbar):
-            images, labels, label_length = images.to(config.device_train), labels.to(
-                config.device_train), label_length.to(config.device_train)
+            images = images.to(config.device_train)
+            labels = labels.to(config.device_train)
+            label_length = label_length.to(config.device_train)
             outputs, output_length = model(images)
             loss = criterion(outputs, labels, output_length, label_length)
 

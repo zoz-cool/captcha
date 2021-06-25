@@ -1,7 +1,9 @@
 """支持工具类"""
 
 import torch
-from .config import config
+from .config import Config
+
+config = Config()
 
 
 def decode_output(outputs):
@@ -22,7 +24,7 @@ def decode_labels(labels, label_length):
     label_list = []
     start = 0
     for length in label_length:
-        label = labels[start:start+length]
+        label = labels[start:start + length]
         start += length.item()
         lab = ''.join(config.classes[i.item()] for i in label)
         label_list.append(lab)
@@ -43,4 +45,3 @@ def calculate_acc(output, target, target_length, call_label=False):
             if pred == label:
                 correct_num += 1
         return correct_num, total_num
-

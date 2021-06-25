@@ -1,14 +1,17 @@
 """函数入口"""
 import os
 import torch
+from PIL import Image
+import argparse
+
 from .train import train
 from .test import test
 from .model import CTCModel
-from .config import config
+from .config import Config
 from .dataset import CaptchaLoader
 from .utils import decode_output, calculate_acc
-from PIL import Image
-import argparse
+
+config = Config()
 
 
 class Model:
@@ -26,7 +29,7 @@ class Model:
         model.load_state_dict(torch.load(config.model_path, map_location=config.device_predict))
         model.eval()
 
-        x = CaptchaLoader.get_trans_img(x)
+        x = CaptchaLoader().get_trans_img(x)
         outputs, _ = model(x)
         preds = decode_output(outputs)
         return preds[0]
@@ -44,8 +47,8 @@ class Model:
         model.load_state_dict(torch.load(model_path, map_location=config.device_predict))
 
         model.eval()
-        testloader = CaptchaLoader.testloader
-        images, labels, label_length = next(iter(testloader))
+        test_loader = CaptchaLoader().testloader
+        images, labels, label_length = next(iter(test_loader))
         with torch.no_grad():
             outputs, _ = model(images)
             preds, truths = calculate_acc(outputs, labels, label_length, call_label=True)
@@ -71,7 +74,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     m = Model()
     if args.server:
-        os.popen(f"{os.path.abspath('./venv/Scripts/python.exe')} -m visdom.server")
+        from visdom import server
+
+        server.download_scripts_and_run()
     elif args.fit or args.train:
         m.fit()
     elif args.test:
@@ -83,4 +88,7 @@ if __name__ == '__main__':
         label = m.predict(img)
         print('标签：', os.path.basename(path).split('_')[0], '预测：', label)
     else:
-        print('Usage: python main.py [-f] fit/train mode [-t] test mode [-p path] predict mode')
+        print(f'Usage: python main.py [-f,--fit,--train] fit/train mode '
+              f'[-t, --test] test mode '
+              f'[-p, --predict path] predict mode'
+              f'[-s --server] launch train monitor server')

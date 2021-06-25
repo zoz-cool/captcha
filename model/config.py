@@ -30,13 +30,9 @@ class Config(object):
     # 每5个epoch保存一次训练结果
     save_n_epoch = 5
 
-    # 单例模式，只会有一个实例
     _instance = None
 
-    def __new__(cls, *args, **kw):
+    def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = object.__new__(cls)
         return cls._instance
-
-
-config = Config()
