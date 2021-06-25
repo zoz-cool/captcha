@@ -7,3 +7,5 @@ pillow
 numpy
 matplotlib
 pyppeteer
+flask
+gunicorn
