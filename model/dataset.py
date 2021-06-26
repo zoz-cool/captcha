@@ -12,6 +12,9 @@ from PIL import Image
 from .config import Config
 
 config = Config()
+transform = transforms.Compose([transforms.ToTensor(), 
+                                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                                transforms.Grayscale(num_output_channels=1)])
 
 
 class CaptchaSet(Dataset):
@@ -55,18 +58,11 @@ class CaptchaLoader:
         nw = config.nw  # 取数进程数
 
         # 数据转换
-        self.transform = transforms.Compose([transforms.ToTensor(),
-                                             transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                                  std=[0.229, 0.224, 0.225]),
-                                             transforms.Grayscale(num_output_channels=1)])
-
-        trainset = CaptchaSet(os.path.join(config.dataset_path, 'train'), self.transform)
+        trainset = CaptchaSet(os.path.join(config.dataset_path, 'train'), transform)
         self.trainloader = torch.utils.data.DataLoader(dataset=trainset, batch_size=batch_size, shuffle=True,
                                                        num_workers=nw, collate_fn=collate_fn)
 
-        testset = CaptchaSet(os.path.join(config.dataset_path, 'test'), self.transform)
+        testset = CaptchaSet(os.path.join(config.dataset_path, 'test'), transform)
         self.testloader = torch.utils.data.DataLoader(dataset=testset, batch_size=batch_size, shuffle=True,
                                                       num_workers=nw, collate_fn=collate_fn)
 
-    def get_trans_img(self, x):
-        return self.transform(x).unsqueeze(0)

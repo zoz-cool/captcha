@@ -5,7 +5,7 @@ tqdm
 visdom
 pillow
 numpy
-matplotlib
-pyppeteer
+# matplotlib
+# pyppeteer
 flask
 gunicorn

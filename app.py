@@ -13,7 +13,7 @@ def return_captcha_label():
     file_storage = request.files.get('file')
     file_name = file_storage.filename
     img = Image.open(file_storage.stream)
-    label = m.predict(img)
+    label =  m.predict(img)
     return jsonify({file_name: label})
 
 
