@@ -3,6 +3,7 @@ import os
 import torch
 from PIL import Image
 import argparse
+from visdom import server
 
 from .train import train
 from .test import test
@@ -74,8 +75,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     m = Model()
     if args.server:
-        from visdom import server
-
         server.download_scripts_and_run()
     elif args.fit or args.train:
         m.fit()
@@ -88,7 +87,8 @@ if __name__ == '__main__':
         label = m.predict(img)
         print('标签：', os.path.basename(path).split('_')[0], '预测：', label)
     else:
-        print(f'Usage: python main.py [-f,--fit,--train] fit/train mode '
-              f'[-t, --test] test mode '
-              f'[-p, --predict path] predict mode'
-              f'[-s --server] launch train monitor server')
+        print(f'Usage: python main.py\n'
+              f'\t[-f,--fit,--train] fit/train mode\n'
+              f'\t[-t, --test] test mode\n'
+              f'\t[-p, --predict path] predict mode\n'
+              f'\t[-s --server] launch train monitor server')

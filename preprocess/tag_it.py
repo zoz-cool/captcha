@@ -73,7 +73,7 @@ class ViewDialog(wx.Frame):
             label, img, file_path = next(self.img_iter)
             bitmap = wx.Bitmap.FromBuffer(*img.size, np.array(img))
             self.bitmap.SetBitmap(bitmap)
-            dlg = wx.TextEntryDialog(self, f"[{num_id}/{len(self.files)-self.num_test_files-self.num_train_files}] "
+            dlg = wx.TextEntryDialog(self, f"[{num_id}/{len(self.files)*3-self.num_test_files-self.num_train_files}] "
                                            f"请输入图片中的字符:", "标注字符内容", value=label)
             if dlg.ShowModal() == wx.ID_OK:
                 message = dlg.GetValue()
