@@ -9,7 +9,7 @@ from .train import train
 from .test import test
 from .model import CTCModel
 from .config import Config
-from .dataset import CaptchaLoader
+from .dataset import CaptchaLoader, transform
 from .utils import decode_output, calculate_acc
 
 config = Config()
@@ -30,7 +30,7 @@ class Model:
         model.load_state_dict(torch.load(config.model_path, map_location=config.device_predict))
         model.eval()
 
-        x = CaptchaLoader().get_trans_img(x)
+        x = transform(x).unsqueeze(0)
         outputs, _ = model(x)
         preds = decode_output(outputs)
         return preds[0]
