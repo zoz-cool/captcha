@@ -8,4 +8,5 @@ numpy
 matplotlib
 flask
 gunicorn
-# pyppeteer # 只有在下载验证码时才需要
+pyppeteer
+wxpython

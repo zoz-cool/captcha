@@ -7,12 +7,12 @@ import wx
 import numpy as np
 from PIL import Image
 from random import random
-from model.main import Model
-from preprocess.split_rgb import split_channel
+from model.predict import predict
+from .split_rgb import split_channel
 import shutil
 
 
-class ViewDialog(wx.Frame):
+class MakeTagDialog(wx.Frame):
     def __init__(self, work_dir, dataset_dir):
         super().__init__(None, title='打验证码标签')
         self.panel = wx.Panel(self)
@@ -46,10 +46,9 @@ class ViewDialog(wx.Frame):
     @staticmethod
     def get_channel_img_and_predict_label(img_path):
         channel_imgs = split_channel(Image.open(img_path))
-        m = Model()
         label_img = {}
         for c, img in channel_imgs.items():
-            label = m.predict(img)
+            label = predict(img)
             if label:
                 label_img[label] = img
         return label_img
@@ -98,12 +97,12 @@ class ViewDialog(wx.Frame):
 
 def main(work_dir, dataset_dir):
     app = wx.App()
-    dlg = ViewDialog(work_dir, dataset_dir)
+    dlg = MakeTagDialog(work_dir, dataset_dir)
     dlg.Show()
     app.MainLoop()
 
 
 if __name__ == '__main__':
-    work_path = 'dataset/captcha-images'
+    work_path = 'dataset/origin'
     dataset_path = 'dataset/captcha'
     main(work_path, dataset_path)

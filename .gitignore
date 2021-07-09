@@ -5,3 +5,5 @@ __pycache__
 .idea
 images
 torch*
+dataset/captcha
+dataset/origin

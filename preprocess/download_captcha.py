@@ -14,13 +14,10 @@ import base64
 class BrowserHandle:
     """浏览器操作"""
 
-    def __init__(self, debug=True, browser_path='chrome-win32/chrome.exe'):
+    def __init__(self, debug=True):
         self.url = 'https://inv-veri.chinatax.gov.cn/'
         self.debug = debug
         self.browser = None
-        self.browser_path = browser_path
-        if not self.browser_path:
-            raise Exception('没有找到浏览器！！！')
         self._call_async_func(self._init)
 
     @staticmethod
@@ -44,7 +41,6 @@ class BrowserHandle:
 
     async def _init(self):
         self.browser = await launch(headless=(not self.debug), ignoreHTTPSErrors=True, defaultViewport=None,
-                                    # executablePath=self.browser_path,  # 'chrome-win32/chrome.exe',
                                     viewport={'width': 1920, 'height': 1080},
                                     args=['--disable-infobars',
                                           '--start-maximized',
@@ -115,9 +111,9 @@ def base64_to_img(base64_str):
     print('保存结果...')
     base64_data = re.sub('^data:image/.+;base64,', '', base64_str)
     byte_data = base64.b64decode(base64_data)
-    if not os.path.isdir('dataset/captcha-images'):
-        os.makedirs('dataset/captcha-images')
-    with open(f'dataset/captcha-images/{time.time()}.png', 'wb') as fb:
+    if not os.path.isdir('dataset/origin'):
+        os.makedirs('dataset/origin')
+    with open(f'dataset/origin/{time.time()}.png', 'wb') as fb:
         fb.write(byte_data)
 
 
@@ -128,8 +124,7 @@ def task(idx):
     bh.fill_basement(inv_code, inv_num, inv_date, inv_chk)
     base64_img, info = bh.get_verify_code()
     base64_to_img(base64_img)
-    with open('tips.txt', 'a') as fp:
-        fp.write(info+'\n')
+    print('tips:', info)
 
 
 if __name__ == '__main__':
