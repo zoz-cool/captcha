@@ -5,7 +5,7 @@ tqdm
 visdom
 pillow
 numpy
-# matplotlib
-# pyppeteer
+matplotlib
 flask
 gunicorn
+# pyppeteer # 只有在下载验证码时才需要

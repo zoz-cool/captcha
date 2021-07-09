@@ -64,6 +64,7 @@ def train():
             pbar.set_description_str(msg)
         # calculate test acc each epoch
         test_acc = test(model)
+        model.train()
         vis.line([test_acc], [global_steps], win='test_acc', update='append',
                  opts={'title': 'test accuracy', 'xlabel': 'steps', 'ylabel': 'pct'})
 
@@ -73,3 +74,7 @@ def train():
             if not os.path.isdir(os.path.dirname(model_path)):
                 os.makedirs(os.path.dirname(model_path))
             torch.save(model.state_dict(), model_path)
+
+
+if __name__ == '__main__':
+    train()
