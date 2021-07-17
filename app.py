@@ -1,19 +1,20 @@
 from flask import Flask, request, jsonify
-from model.main import Model
+from model.predict import predict
 from PIL import Image
 
 app = Flask(__name__)
 
-m = Model()
-
 
 @app.route('/captcha-label', methods=['POST'])
 def return_captcha_label():
-    file_storage = request.files.get('file')
-    file_name = file_storage.filename
-    img = Image.open(file_storage.stream)
-    label =  m.predict(img)
-    return jsonify({file_name: label})
+    try:    
+        file_storage = request.files.get('file')
+        file_name = file_storage.filename
+        img = Image.open(file_storage.stream)
+        label =  predict(img)
+        return jsonify({'status_code': 200, 'filename': file_name, 'predict': label})
+    except Exception as e:
+        return jsonify({'status_code': 500, 'message': str(e)})
 
 
 if __name__ == '__main__':
