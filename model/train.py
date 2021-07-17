@@ -24,7 +24,7 @@ def train():
     summary(model, config.sample_size)
     criterion = torch.nn.CTCLoss(blank=config.num_classes)
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
-    # lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.98)
+    lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=False, threshold=0.0001, threshold_mode='rel', cooldown=0, min_lr=0, eps=1e-08)
     print(f'Training on device: {config.device_train}')
     model_path = config.model_path
     if os.path.isfile(model_path):
@@ -49,7 +49,7 @@ def train():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            # lr_scheduler.step()
+            lr_scheduler.step(loss)
             running_loss.append(loss.item())
             corr, tot = calculate_acc(outputs, labels, label_length)
 
@@ -64,6 +64,7 @@ def train():
             pbar.set_description_str(msg)
         # calculate test acc each epoch
         test_acc = test(model)
+        model.train()
         vis.line([test_acc], [global_steps], win='test_acc', update='append',
                  opts={'title': 'test accuracy', 'xlabel': 'steps', 'ylabel': 'pct'})
 
@@ -73,3 +74,7 @@ def train():
             if not os.path.isdir(os.path.dirname(model_path)):
                 os.makedirs(os.path.dirname(model_path))
             torch.save(model.state_dict(), model_path)
+
+
+if __name__ == '__main__':
+    train()

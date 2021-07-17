@@ -5,7 +5,6 @@ import os
 from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 
 
 def split_channel(img, upper=220, lower=60):
@@ -29,7 +28,10 @@ def split_channel(img, upper=220, lower=60):
 
 
 def test_split_channel():
-    img = Image.open('dataset/captcha-images/1622795034.0180705.png')
+    from random import choice
+    origin_dir = 'dataset/origin/'
+    path = os.path.join(origin_dir, choice(os.listdir(origin_dir)))
+    img = Image.open(path)
     channel_data = split_channel(img)
     plt.figure()
     grid = plt.GridSpec(3, 2, wspace=0.4, hspace=0.3)
@@ -49,18 +51,5 @@ def test_split_channel():
     plt.show()
 
 
-def split_and_save(path='dataset/captcha-images', output_path='dataset/captcha'):
-    """分割颜色"""
-    for file_ in tqdm(os.listdir(path)):
-        try:
-            oimg = Image.open(os.path.join(path, file_))
-            channel_data = split_channel(oimg)
-            for color, img in channel_data.items():
-                img.save(f'{output_path}/{file_.replace(".png", ".%s.png"%color)}')
-        except Exception as e:
-            print(f'ERROR:{file_}, {e}')
-
-
 if __name__ == '__main__':
     test_split_channel()
-    # split_and_save()
