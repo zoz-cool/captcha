@@ -10,12 +10,11 @@ RUN pip install pip setuptools --upgrade -i https://pypi.mirrors.ustc.edu.cn/sim
     && pip install -r requirements.txt -i https://pypi.mirrors.ustc.edu.cn/simple/ \
     && rm requirements.txt torch-1.9.0-cp38-cp38-manylinux1_x86_64.whl && rm -rf /.pip
 
-COPY app.py boot.sh ./
+COPY app.py ./
 COPY model model
-RUN chmod +x boot.sh
 RUN chown -R yczha /home/yczha
 ENV FLASK_APP app.py
 EXPOSE 5000
 
 USER yczha
-ENTRYPOINT ["./boot.sh"]
+ENTRYPOINT exec gunicorn -w 4 -b :5000 --access-logfile - --error-logfile - app:app

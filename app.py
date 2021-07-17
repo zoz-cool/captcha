@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 from model.main import Model
-import base64
 from PIL import Image
 
 app = Flask(__name__)
