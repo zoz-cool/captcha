@@ -1,10 +1,23 @@
+"""
+国税网验证码识别
+@author:yooongchun@foxmail.com
+"""
 from typing import Optional
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Request
 from pydantic import BaseModel
 from PIL import Image
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from model.predict import predict
 
+limiter = Limiter(key_func=get_remote_address, default_limits=[
+                  '5/second', '100/minute', '500/hour', '2000/day'])
 app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 
 class Response(BaseModel):
@@ -15,7 +28,7 @@ class Response(BaseModel):
 
 
 @app.post('/captcha/label', response_model=Response)
-def get_captcha_label(file: UploadFile = File(...)):
+def get_captcha_label(request: Request, file: UploadFile = File(...)):
     """上传验证码图片返回识别标签"""
     try:
         img = Image.open(file.file)

@@ -5,6 +5,7 @@ fastapi
 uvicorn[standard]
 python-multipart
 requests
+slowapi
 
 # 生产环境不需要安装以下库
 # torchsummary
@@ -14,4 +15,3 @@ requests
 # matplotlib
 # pyppeteer
 # wxpython
-# requests
