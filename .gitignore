@@ -1,0 +1,9 @@
+venv*
+.vscode
+__pycache__
+*/__pycache__
+.idea
+images
+torch*
+dataset/captcha
+dataset/origin
