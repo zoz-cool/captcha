@@ -7,3 +7,5 @@ dataset/*
 dataset/
 inference/
 */**.DS_store
+.DS_Store
+font/

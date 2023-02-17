@@ -26,7 +26,7 @@ def get_pred_label(img_path):
     res = requests.post('https://www.yooongchun.com/api/captcha', files={"file": open(img_path, 'rb')})
     res_dict = res.json()
     return img_path, res_dict['predict_label'], round(res_dict['confidence'], 3)
-    
+
 
 def make_cache_label(files, worker_num=50):
     """pre query image label"""
@@ -139,13 +139,15 @@ def generate_label_file(data_dir, save_label_path):
     """Generate label file for ALL image in data dir"""
     with open(save_label_path, 'w') as fp:
         for file_path in glob(f"{data_dir}/**/*.png", recursive=True):
+            path = pathlib.Path(file_path)
             label = file_path.split('/')[-1].split('_')[0]
-            fp.write(f'{file_path}\t{label}\n')
+            fp.write(f'{path.parent.name}/{path.name}\t{label}\n')
 
 
 @click.command()
 @click.option('--mode', required=True, type=click.Choice(['auto-tag', 'man-tag', 'gen-label']))
-def run(mode):
+@click.option('--data-dir', type=str)
+def run(mode, data_dir):
     if mode == 'auto-tag':
         splitted_dir = root_dir / 'dataset/splitted'
         target_dir = root_dir / 'dataset/labeled'
@@ -156,11 +158,16 @@ def run(mode):
         target_dir = root_dir / 'dataset/labeled'
         manual_tag(splitted_dir, target_dir)
     elif mode == 'gen-label':
-        prefix = root_dir / 'dataset/labeled'
-        print(f'Generate train label file in {prefix}/gt_train.txt')
-        generate_label_file(f'{prefix}/train', f'{prefix}/gt_train.txt')
-        print(f'Generate test label file in {prefix}/gt_test.txt')
-        generate_label_file(f'{prefix}/test', f'{prefix}/gt_test.txt')
+        if data_dir is None:
+            prefix = root_dir / 'dataset/labeled'
+            print(f'Generate train label file in {prefix}/gt_train.txt')
+            generate_label_file(f'{prefix}/train', f'{prefix}/gt_train.txt')
+            print(f'Generate test label file in {prefix}/gt_test.txt')
+            generate_label_file(f'{prefix}/test', f'{prefix}/gt_test.txt')
+        else:
+            prefix = pathlib.Path(data_dir).parent
+            print(f'Generate label file in {prefix}/gt_label.txt')
+            generate_label_file(data_dir, f'{prefix}/gt_label.txt')
 
 
 if __name__ == '__main__':

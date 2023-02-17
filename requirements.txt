@@ -1,2 +1,5 @@
 fastapi[all]
 requests
+pyppeteer
+pandas
+matplotlib
