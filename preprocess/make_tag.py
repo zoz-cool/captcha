@@ -13,10 +13,10 @@ from glob import glob
 from queue import Queue
 
 import click
-import numpy as np
 import requests
-import wx
-from PIL import Image
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QMainWindow, QLabel, QInputDialog, QLineEdit, QApplication, QPushButton, QVBoxLayout, QWidget
 
 root_dir = pathlib.Path(__file__).parent.parent
 cached_label = Queue()
@@ -39,30 +39,31 @@ def make_cache_label(files, worker_num=50):
     print(f'cache label done, total cached file {len(files)}!')
 
 
-class MakeTagDialog(wx.Frame):
+class TagWindow(QMainWindow):
     def __init__(self, files_dir, target_dir, test_ratio=0.3):
-        super().__init__(None, title='打验证码标签')
-        self.panel = wx.Panel(self)
+        super().__init__()
         self.files = glob(f"{files_dir}/*.png")
         self.target_dir = pathlib.Path(target_dir)
         self.exist_count = len(glob(f"{target_dir}/**/*.png"))
         self.test_ratio = test_ratio
         os.makedirs(self.target_dir / 'train', exist_ok=True)
         os.makedirs(self.target_dir / 'test', exist_ok=True)
-        
         self.img_iter = self.get_img_iter()
-        
-        self.bitmap = wx.StaticBitmap(self.panel, bitmap=wx.Bitmap(self.files[0]))
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.bitmap, flag=wx.ALL | wx.EXPAND, border=20)
-        self.panel.SetSizer(sizer)
-        self.bitmap.Bind(wx.EVT_RIGHT_DOWN, self.on_click)
-        self.SetMinSize((800, 500))
-        self.panel.Fit()
-        self.Fit()
-        self.Centre()
-        self.SetFocus()
-        wx.CallLater(10, self.on_click, None)
+
+        # 布局
+        self.setWindowTitle('Make Tag Window')
+        self.setFixedSize(QSize(800, 600))
+
+        self.label = QLabel()
+        self.label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        btn = QPushButton('START')
+        btn.clicked.connect(self.next_img)
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.label)
+        vbox.addWidget(btn)
+        widget = QWidget()
+        widget.setLayout(vbox)
+        self.setCentralWidget(widget)
 
     def get_img_iter(self):
         for i, filepath in enumerate(self.files):
@@ -72,38 +73,32 @@ class MakeTagDialog(wx.Frame):
     def next_img(self):        
         try:
             idx, label, ci, file_path = next(self.img_iter)
-            img = Image.open(file_path)
-            bitmap = wx.Bitmap.FromBuffer(img.size[0], img.size[1], np.array(img))
-            self.bitmap.SetBitmap(bitmap)
-            dlg = wx.TextEntryDialog(self, f"[{idx}/{len(self.files)}]"
-                                           f"请输入图片中的字符:(ci={ci})", "标注字符内容", value=label)
-            dst = 'train' if random.random() > self.test_ratio else 'test'
-            save_path = self.target_dir / dst / f"{label}_{self.exist_count+idx}.png"
-            if dlg.ShowModal() == wx.ID_OK:
-                message = dlg.GetValue()
-                if len(message) > 0:
-                    shutil.move(file_path, save_path)
-                dlg.Destroy()
-            else:
-                dlg.Destroy()
+            self.label.setPixmap(QPixmap(file_path))
+            title = f"[{idx}/{len(self.files)}]"
+            tip = f"请输入图片中的字符:(ci={ci})"
+            text, ok = QInputDialog.getText(self, title, tip, QLineEdit.Normal, label)
+            if ok and text:
+                print('text?', text)
+            # dst = 'train' if random.random() > self.test_ratio else 'test'
+            # save_path = self.target_dir / dst / f"{label}_{self.exist_count+idx}.png"
+            # if dlg.ShowModal() == wx.ID_OK:
+            #     message = dlg.GetValue()
+            #     if len(message) > 0:
+            #         shutil.move(file_path, save_path)
+            #     dlg.Destroy()
+            # else:
+            #     dlg.Destroy()
         except Exception:
             print(traceback.format_exc())
-            return True
-
-    def on_click(self, e):
-        status = self.next_img()
-        if status:
-            self.Destroy()
-        else:
-            self.on_click(None)
+            return False
 
 
 def manual_tag(files_dir, target_dir):
     """make tag manually"""
-    app = wx.App()
-    dlg = MakeTagDialog(files_dir, target_dir)
-    dlg.Show()
-    app.MainLoop()
+    app = QApplication()
+    win = TagWindow(files_dir, target_dir)
+    win.show()
+    app.exec_()
 
 
 def auto_tag(files_dir, target_dir, hard_dir, min_ci=0.90, test_ratio=0.3):

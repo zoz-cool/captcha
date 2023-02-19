@@ -1,4 +1,6 @@
 venv*
+uvenv*
+wvenv*
 .vscode
 __pycache__
 */__pycache__
