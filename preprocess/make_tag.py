@@ -7,16 +7,16 @@ import random
 import shutil
 import threading
 import time
-import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from glob import glob
 from queue import Queue
 
 import click
 import requests
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QMainWindow, QLabel, QInputDialog, QLineEdit, QApplication, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (QApplication, QInputDialog, QLabel, QLineEdit,
+                               QMainWindow, QPushButton, QVBoxLayout, QWidget)
 
 root_dir = pathlib.Path(__file__).parent.parent
 cached_label = Queue()
@@ -40,22 +40,22 @@ def make_cache_label(files, worker_num=50):
 
 
 class TagWindow(QMainWindow):
-    def __init__(self, files_dir, target_dir, test_ratio=0.3):
+    def __init__(self, files_dir, target_dir):
         super().__init__()
         self.files = glob(f"{files_dir}/*.png")
         self.target_dir = pathlib.Path(target_dir)
-        self.exist_count = len(glob(f"{target_dir}/**/*.png"))
-        self.test_ratio = test_ratio
-        os.makedirs(self.target_dir / 'train', exist_ok=True)
-        os.makedirs(self.target_dir / 'test', exist_ok=True)
+        self.exist_count = len(glob(f"{target_dir}/*.png"))
         self.img_iter = self.get_img_iter()
 
         # 布局
         self.setWindowTitle('Make Tag Window')
         self.setFixedSize(QSize(800, 600))
 
-        self.label = QLabel()
+        self.label = QLabel('IMAGE HERE')
         self.label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        scale = 2
+        self.label.setFixedSize(QSize(int(120*scale), int(50*scale)))
+        self.label.setScaledContents(True)
         btn = QPushButton('START')
         btn.clicked.connect(self.next_img)
         vbox = QVBoxLayout()
@@ -70,27 +70,28 @@ class TagWindow(QMainWindow):
             _, label, ci = get_pred_label(filepath)
             yield i+1, label, ci, filepath
 
-    def next_img(self):        
+    def next_img(self):
+        """recur image path"""
         try:
-            idx, label, ci, file_path = next(self.img_iter)
+            idx, auto_label, ci, file_path = next(self.img_iter)
             self.label.setPixmap(QPixmap(file_path))
             title = f"[{idx}/{len(self.files)}]"
             tip = f"请输入图片中的字符:(ci={ci})"
-            text, ok = QInputDialog.getText(self, title, tip, QLineEdit.Normal, label)
-            if ok and text:
-                print('text?', text)
-            # dst = 'train' if random.random() > self.test_ratio else 'test'
-            # save_path = self.target_dir / dst / f"{label}_{self.exist_count+idx}.png"
-            # if dlg.ShowModal() == wx.ID_OK:
-            #     message = dlg.GetValue()
-            #     if len(message) > 0:
-            #         shutil.move(file_path, save_path)
-            #     dlg.Destroy()
-            # else:
-            #     dlg.Destroy()
-        except Exception:
-            print(traceback.format_exc())
-            return False
+            checked_label, ok = QInputDialog.getText(self, title, tip, QLineEdit.Normal, auto_label)
+            if ok and checked_label: # click OK
+                save_path = self.target_dir / f"{checked_label}_{self.exist_count+idx}.png"
+                shutil.move(file_path, save_path)
+                print('tag file', str(file_path))
+            elif not ok:
+                print('remove file', str(file_path))
+                os.remove(file_path)
+            elif checked_label == "":
+                print("stop iter!")
+                self.close()
+                return
+            self.next_img()
+        except StopIteration:
+            return
 
 
 def manual_tag(files_dir, target_dir):
@@ -103,12 +104,11 @@ def manual_tag(files_dir, target_dir):
 
 def auto_tag(files_dir, target_dir, hard_dir, min_ci=0.90, test_ratio=0.3):
     """make tag automatically"""
-    os.makedirs(f"{target_dir}/train", exist_ok=True)
-    os.makedirs(f"{target_dir}/test", exist_ok=True)
+    os.makedirs(target_dir, exist_ok=True)
     os.makedirs(hard_dir, exist_ok=True)
     ori_files = glob(f"{files_dir}/*.png")
     ori_count = len(ori_files)
-    count = len(glob(f"{target_dir}/**/*.png"))
+    count = len(glob(f"{target_dir}/*.png"))
     hard_count = len(glob(f"{hard_dir}/*.png"))
     # pre query image label
     threading.Thread(target=make_cache_label, args=(ori_files,)).start()
@@ -119,8 +119,7 @@ def auto_tag(files_dir, target_dir, hard_dir, min_ci=0.90, test_ratio=0.3):
             img_path, label, ci = cached_label.get()
             taged = ['-']
             if ci > min_ci:
-                data_dir = 'train' if random.random() > test_ratio else 'test'
-                save_path = pathlib.Path(target_dir, data_dir, f'{label}_auto_ci{ci}_{count+process_count}.png')
+                save_path = pathlib.Path(target_dir, f'{label}_auto_ci{ci}_{count+process_count}.png')
                 taged = '[TAGED]'
             else:
                 save_path = pathlib.Path(hard_dir, f'{label}_auto_ci{ci}_{hard_count+process_count}.png')
@@ -133,7 +132,7 @@ def auto_tag(files_dir, target_dir, hard_dir, min_ci=0.90, test_ratio=0.3):
 def generate_label_file(data_dir, save_label_path):
     """Generate label file for ALL image in data dir"""
     with open(save_label_path, 'w') as fp:
-        for file_path in glob(f"{data_dir}/**/*.png", recursive=True):
+        for file_path in glob(f"{data_dir}/*.png", recursive=True):
             path = pathlib.Path(file_path)
             label = file_path.split('/')[-1].split('_')[0]
             fp.write(f'{path.parent.name}/{path.name}\t{label}\n')
@@ -145,20 +144,16 @@ def generate_label_file(data_dir, save_label_path):
 def run(mode, data_dir):
     if mode == 'auto-tag':
         splitted_dir = root_dir / 'dataset/splitted'
-        target_dir = root_dir / 'dataset/labeled'
+        target_dir = root_dir / 'dataset/auto_labeled'
         hard_dir = root_dir / 'dataset/hard'
         auto_tag(splitted_dir, target_dir, hard_dir)
     elif mode == 'man-tag':
         splitted_dir = root_dir / 'dataset/hard'
-        target_dir = root_dir / 'dataset/labeled'
+        target_dir = root_dir / 'dataset/train'
         manual_tag(splitted_dir, target_dir)
     elif mode == 'gen-label':
         if data_dir is None:
-            prefix = root_dir / 'dataset/labeled'
-            print(f'Generate train label file in {prefix}/gt_train.txt')
-            generate_label_file(f'{prefix}/train', f'{prefix}/gt_train.txt')
-            print(f'Generate test label file in {prefix}/gt_test.txt')
-            generate_label_file(f'{prefix}/test', f'{prefix}/gt_test.txt')
+            raise RuntimeError('Must specify dataset dir')
         else:
             prefix = pathlib.Path(data_dir).parent
             print(f'Generate label file in {prefix}/gt_label.txt')
