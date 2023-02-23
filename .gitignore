@@ -11,3 +11,5 @@ inference/
 */**.DS_store
 .DS_Store
 font/
+*.tar
+*.tgz
