@@ -6,7 +6,6 @@ __pycache__
 */__pycache__
 .idea
 dataset/*
-dataset/
 inference/
 */**.DS_store
 .DS_Store

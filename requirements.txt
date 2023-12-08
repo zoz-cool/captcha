@@ -3,3 +3,7 @@ requests
 pyppeteer
 pandas
 matplotlib
+pillow
+scipy
+numpy
+tqdm
