@@ -196,7 +196,7 @@ def batch_save(imgs, labels, output_dir: pathlib.Path, test_ratio=0.4):
             file_records = json.load(f)
     for i, label in enumerate(labels):
         save_path = output_dir.absolute() / "images" / f"{int(1000 * time.time())}-{labels[i]['text']}.png"
-        label["path"] = str(save_path.absolute())
+        label["path"] = save_path.parent.name + "/" + save_path.name
         file_records.append(label)
     with open(json_file, "w", encoding="utf-8") as fout:
         json.dump(file_records, fout, ensure_ascii=False, indent=4)
@@ -218,7 +218,7 @@ def main():
     gen = CaptchaGenerator(font_path, font2_path, chinese_words_path, width=120, height=50, max_words=args.max_num)
     batch_imgs = []
     batch_labels = []
-    batch_size = 5000
+    batch_size = 1000
     tbar = tqdm(range(args.num))
     for i in tbar:
         img, label = gen.gen_next(min_num=args.min_num, max_num=args.max_num)
