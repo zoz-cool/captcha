@@ -3,6 +3,7 @@ import os
 import random
 import pathlib
 import argparse
+import shutil
 import sys
 import time
 
@@ -57,7 +58,7 @@ class CaptchaGenerator:
 
         return dark_colors
 
-    def gen_next(self, min_num=1, max_num=6):
+    def gen_next(self, min_num=4, max_num=6):
         assert min_num <= max_num <= self.max_words, "不能超出最大字符数"
         bg_colors = self.get_light_colors(1)
         img = Image.new('RGBA', (self.width, self.height), color=bg_colors[0])
@@ -184,10 +185,12 @@ def parse_args():
     return parser.parse_args(sys.argv[1:])
 
 
-def batch_save(imgs, labels, output_dir: pathlib.Path, test_ratio=0.4):
+def batch_save(imgs, labels, output_dir: pathlib.Path, test_ratio=0.4, index=0):
     label_file = "train.json" if random.random() > test_ratio else "test.json"
+    image_dir = output_dir.absolute() / "images"
+    os.makedirs(image_dir, exist_ok=True)
     for i, img in enumerate(imgs):
-        save_path = output_dir.absolute() / "images" / f"{int(1000 * time.time())}-{labels[i]['text']}.png"
+        save_path = image_dir / f"{index + i:0>7d}-{labels[i]['text']}.png"
         img.save(save_path)
     json_file = output_dir / label_file
     file_records = []
@@ -195,8 +198,8 @@ def batch_save(imgs, labels, output_dir: pathlib.Path, test_ratio=0.4):
         with open(json_file, "r", encoding="utf-8") as f:
             file_records = json.load(f)
     for i, label in enumerate(labels):
-        save_path = output_dir.absolute() / "images" / f"{int(1000 * time.time())}-{labels[i]['text']}.png"
-        label["path"] = save_path.parent.name + "/" + save_path.name
+        label["index"] = index + i
+        label["path"] = "images/" + f"{index + i:0>7d}-{labels[i]['text']}.png"
         file_records.append(label)
     with open(json_file, "w", encoding="utf-8") as fout:
         json.dump(file_records, fout, ensure_ascii=False, indent=4)
@@ -210,16 +213,14 @@ def main():
     chinese_words_path = str(assets_dir / "chinese_words.txt")
 
     args = parse_args()
-    image_dir = args.output / "images"
-    if os.path.isdir(image_dir):
-        print(f"output dir <{image_dir}> already exists, current file num is {len(os.listdir(image_dir))}")
-    else:
-        os.makedirs(image_dir)
+    if os.path.isdir(args.output):
+        shutil.rmtree(args.output)
     gen = CaptchaGenerator(font_path, font2_path, chinese_words_path, width=120, height=50, max_words=args.max_num)
     batch_imgs = []
     batch_labels = []
     batch_size = 1000
     tbar = tqdm(range(args.num))
+    batch_count = 0
     for i in tbar:
         img, label = gen.gen_next(min_num=args.min_num, max_num=args.max_num)
         batch_imgs.append(img)
@@ -227,9 +228,11 @@ def main():
         tbar.set_description(f"index={i + 1}")
         if (i > 0 and i % batch_size == 0) or i == args.num - 1:
             tbar.set_description(f"index={i + 1}, batch save!")
-            batch_save(batch_imgs, batch_labels, args.output, test_ratio=args.test_ratio)
+            batch_save(batch_imgs, batch_labels, args.output, test_ratio=args.test_ratio,
+                       index=batch_size * batch_count)
             batch_imgs = []
             batch_labels = []
+            batch_count += 1
 
 
 if __name__ == '__main__':
