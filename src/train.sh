@@ -1,7 +1,7 @@
 #! /bin/bash
 
 PROJ_DIR=$(dirname $(dirname $(readlink -f "$0")))
-DATASET_DIR=${PROJ_DIR}/dataset/small
+DATASET_DIR=${PROJ_DIR}/dataset
 
 set -x
 cd ${PROJ_DIR}/src

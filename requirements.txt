@@ -1,9 +1,5 @@
-fastapi[all]
-requests
-pyppeteer
-pandas
-matplotlib
-pillow
-scipy
+opencv-python
 numpy
-tqdm
+paddlepaddle-gpu
+Levenshtein
+visualdl
