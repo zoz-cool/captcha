@@ -80,8 +80,8 @@ def train(args):
 
             # 保存模型
             save_epoch_path = "/".join([args.save_path, f"e{epoch}", "model"])
-            paddle.jit.save(layer=model, path= save_epoch_path,
-                        input_spec=[InputSpec(shape=[None, *img_size], dtype='float32')])
+            paddle.jit.save(layer=model, path=save_epoch_path,
+                            input_spec=[InputSpec(shape=[None, *img_size], dtype='float32')])
 
         # 记录学习率
         writer.add_scalar('Learning rate', scheduler.last_lr, epoch)
@@ -107,7 +107,7 @@ def evaluate(model, test_loader, vocabulary):
             truth_list.append(label_text)
         idx = random.choice(range(len(truth_list)))
         samples.append((truth_list[idx], pred_list[idx]))
-        for pred, truth in zip(*(pred_list, truth_list)):    
+        for pred, truth in zip(*(pred_list, truth_list)):
             # 计算字错率
             c = decoder.cer(pred, truth) / float(len(truth))
             cer_result.append(c)
@@ -131,7 +131,6 @@ def parse_args():
     parser.add_argument("--pretrained", type=str, default="")
     parser.add_argument("--channel", type=str, default="red")
     parser.add_argument("--save_per_epoch", type=int, default=2)
-    
 
     return parser.parse_args(sys.argv[1:])
 

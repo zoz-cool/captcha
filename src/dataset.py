@@ -2,8 +2,8 @@
 
 import json
 
-import cv2
 import numpy as np
+from PIL import Image
 from paddle.io import Dataset
 from paddle.vision.transforms import transforms
 
@@ -51,8 +51,8 @@ class CaptchaDataset(Dataset):
         label_arr = np.array(label_seq).astype("int32")
 
         # 加载图片
-        img = cv2.imread(self.dataset_dir + "/" + label_map["path"])
-        img_arr = img.astype("float32").transpose([2, 0, 1]) / 255.0
+        img = Image.open(self.dataset_dir + "/" + label_map["path"]).convert("RGB")
+        img_arr = np.array(img, np.float32).transpose([2, 0, 1]) / 255.0
         # img_arr = self.transform(img_arr)
         
         return img_arr, label_arr
