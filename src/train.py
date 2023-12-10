@@ -29,17 +29,17 @@ def train(args):
     test_loader = DataLoader(dataset=test_dataset, batch_size=args.batch_size)
 
     # 获取模型
-    num_classes = len(train_dataset.words_dict)
+    num_classes = len(train_dataset.vocabulary)
     model = m.Model(num_classes)
     img_size = train_dataset[0][0].shape
     paddle.summary(model, input_size=(args.batch_size, *img_size))
 
     # 设置优化方法
-    boundaries = [10, 20, 50]
-    lr = [0.1 ** val * args.lr for val in range(len(boundaries) + 1)]
+    boundaries = [10, 20, 50, 100]
+    lr = [0.1 ** step * args.lr for step in range(len(boundaries) + 1)]
     scheduler = paddle.optimizer.lr.PiecewiseDecay(boundaries=boundaries, values=lr, verbose=False)
     optimizer = paddle.optimizer.Adam(parameters=model.parameters(), learning_rate=scheduler)
-
+    # optimizer = paddle.optimizer.Adam(learning_rate=args.lr, parameters=model.parameters()) 
     # 获取损失函数
     ctc_loss = paddle.nn.CTCLoss(blank=num_classes)
 
@@ -53,14 +53,14 @@ def train(args):
     test_step = 0
     for epoch in range(args.num_epoch):
         for batch_id, (inputs, labels) in enumerate(train_loader()):
-            out = model(inputs)
+            out = model(paddle.to_tensor(inputs, dtype="float32"))
             out = paddle.transpose(out, perm=[1, 0, 2])
             input_lengths = paddle.full(shape=[out.shape[1]], fill_value=out.shape[0], dtype="int64")
-            label_lengths = paddle.full(shape=[out.shape[1]], fill_value=4, dtype="int64")
+            label_lengths = paddle.sum(labels != -1, axis=-1, dtype="int64")
+            # label_lengths = paddle.full(shape=[out.shape[1]], fill_value=4, dtype="int64")
             # 计算损失
             loss = ctc_loss(out, labels, input_lengths, label_lengths)
             loss.backward()
-
             optimizer.step()
             optimizer.clear_grad()
             # 多卡训练只使用一个进程打印
@@ -71,7 +71,7 @@ def train(args):
         if (epoch % 10 == 0 and epoch != 0) or epoch == args.num_epoch - 1:
             # 执行评估
             model.eval()
-            cer = evaluate(model, test_loader, train_dataset.words_dict)
+            cer = evaluate(model, test_loader, train_dataset.vocabulary)
             print('[%s] Test epoch %d, cer: %f' % (datetime.now(), epoch, cer))
             writer.add_scalar('Test cer', cer, test_step)
             test_step += 1
@@ -85,25 +85,25 @@ def train(args):
 
 
 # 评估模型
-def evaluate(model, test_loader, words_dict):
+def evaluate(model, test_loader, vocabulary):
     cer_result = []
     for batch_id, (inputs, labels) in enumerate(test_loader()):
         # 执行识别
-        outs = model(inputs)
+        outs = model(paddle.to_tensor(inputs))
         outs = paddle.nn.functional.softmax(outs)
         # 解码获取识别结果
-        label_list = []
-        out_strings = []
+        truth_list = []
+        pred_list = []
         for out in outs:
-            out_string = decoder.ctc_greedy_decoder(out, words_dict)
-            out_strings.append(out_string)
+            pred = decoder.ctc_greedy_decoder(out, vocabulary)
+            pred_list.append(pred)
         for label in labels:
-            labels = decoder.label_to_string(label, words_dict)
-            label_list.append(labels)
-        for out_string, label in zip(*(out_strings, label_list)):
-            print(label, out_string)
+            label_text = decoder.label_to_string(label, vocabulary)
+            truth_list.append(label_text)
+
+        for pred, truth in zip(*(pred_list, truth_list)):    
             # 计算字错率
-            c = decoder.cer(out_string, label) / float(len(label))
+            c = decoder.cer(pred, truth) / float(len(truth))
             cer_result.append(c)
     cer_result = float(np.mean(cer_result))
     return cer_result
@@ -111,14 +111,14 @@ def evaluate(model, test_loader, words_dict):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_dir", type=str, default="/home/aistudio/data/data251502/small")
-    parser.add_argument("--words_dict_path", type=str, default="/home/aistudio/work/words_dict.txt")
+    parser.add_argument("--dataset_dir", type=str, default="/home/aistudio/data/data251503/captcha_100w")
+    parser.add_argument("--words_dict_path", type=str, default="/home/aistudio/data/data251503/words_dict.txt")
     parser.add_argument("--save_path", type=str, default="/home/aistudio/work/output/checkpoint/model")
     parser.add_argument("--log_dir", type=str, default="/home/aistudio/work/output/log")
 
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--num_epoch", type=int, default=100)
-    parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--lr", type=float, default=0.1)
     parser.add_argument("--pretrained", type=str, default="")
     parser.add_argument("--channel", type=str, default="red")
 

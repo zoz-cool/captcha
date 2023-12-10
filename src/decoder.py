@@ -29,7 +29,7 @@ def ctc_greedy_decoder(probs_seq, vocabulary):
     blank_index = len(vocabulary)
     index_list = [index for index in index_list if index != blank_index]
     # 将索引列表转换为字符串
-    return ''.join([vocabulary[index] for index in index_list])[:4]
+    return ''.join([vocabulary[index] for index in index_list])
 
 
 def label_to_string(label, vocabulary):
@@ -42,7 +42,7 @@ def label_to_string(label, vocabulary):
     :return: 解码结果字符串
     :rtype: baseline
     """
-    return ''.join([vocabulary[index] for index in label])
+    return ''.join([vocabulary[index] for index in label if index != -1])
 
 
 def cer(out_string, target_string):
