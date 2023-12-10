@@ -1,0 +1,4 @@
+numpy
+ppqi
+pillow
+fastapi[all]
