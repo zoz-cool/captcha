@@ -3,6 +3,7 @@
 import os
 import sys
 import argparse
+import pathlib
 
 from datetime import datetime
 
@@ -21,12 +22,12 @@ def train(args):
     writer = vdl.LogWriter(logdir=args.log_dir)
 
     # 获取训练数据
-    train_dataset = dataset.CaptchaDataset(args.dataset_dir, args.words_dict_path, mode="train", color=args.channel)
+    train_dataset = dataset.CaptchaDataset(args.dataset_dir, args.vocabulary_path, mode="train", color=args.channel)
     train_loader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True)
 
     # 获取测试数据
-    test_dataset = dataset.CaptchaDataset(args.dataset_dir, args.words_dict_path, mode="test", color=args.channel)
-    test_loader = DataLoader(dataset=test_dataset, batch_size=args.batch_size)
+    test_dataset = dataset.CaptchaDataset(args.dataset_dir, args.vocabulary_path, mode="test", color=args.channel)
+    test_loader = DataLoader(dataset=test_dataset, batch_size=args.batch_size // 2)
 
     # 获取模型
     num_classes = len(train_dataset.vocabulary)
@@ -68,7 +69,7 @@ def train(args):
                 print('[%s] Train epoch %d, batch %d, loss: %f' % (datetime.now(), epoch, batch_id, loss))
                 writer.add_scalar('Train loss', loss, train_step)
                 train_step += 1
-        if (epoch % 10 == 0 and epoch != 0) or epoch == args.num_epoch - 1:
+        if (epoch % args.save_per_epoch == 0 and epoch != 0) or epoch == args.num_epoch - 1:
             # 执行评估
             model.eval()
             cer = evaluate(model, test_loader, train_dataset.vocabulary)
@@ -76,12 +77,15 @@ def train(args):
             writer.add_scalar('Test cer', cer, test_step)
             test_step += 1
             model.train()
+
+            # 保存模型
+            save_epoch_path = "/".join([args.save_path, f"e{epoch}", "model"])
+            paddle.jit.save(layer=model, path= save_epoch_path,
+                        input_spec=[InputSpec(shape=[None, *img_size], dtype='float32')])
+
         # 记录学习率
         writer.add_scalar('Learning rate', scheduler.last_lr, epoch)
         scheduler.step()
-        # 保存模型
-        paddle.jit.save(layer=model, path=args.save_path,
-                        input_spec=[InputSpec(shape=[None, *img_size], dtype='float32')])
 
 
 # 评估模型
@@ -110,17 +114,21 @@ def evaluate(model, test_loader, vocabulary):
 
 
 def parse_args():
+    proj_dir = pathlib.Path(__file__).parent.parent
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_dir", type=str, default="/home/aistudio/data/data251503/captcha_100w")
-    parser.add_argument("--words_dict_path", type=str, default="/home/aistudio/data/data251503/words_dict.txt")
-    parser.add_argument("--save_path", type=str, default="/home/aistudio/work/output/checkpoint/model")
-    parser.add_argument("--log_dir", type=str, default="/home/aistudio/work/output/log")
+    parser.add_argument("--dataset_dir", type=str, default=str(proj_dir / "dataset"))
+    parser.add_argument("--vocabulary_path", type=str, default=str(proj_dir / "assets/vocabulary.txt"))
+    parser.add_argument("--save_path", type=str, default=str(proj_dir / "output/checkpoint"))
+    parser.add_argument("--log_dir", type=str, default=str(proj_dir / "output/log"))
 
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--num_epoch", type=int, default=100)
     parser.add_argument("--lr", type=float, default=0.1)
     parser.add_argument("--pretrained", type=str, default="")
     parser.add_argument("--channel", type=str, default="red")
+    parser.add_argument("--save_per_epoch", type=int, default=2)
+    
 
     return parser.parse_args(sys.argv[1:])
 
