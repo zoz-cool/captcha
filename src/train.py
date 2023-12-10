@@ -2,6 +2,7 @@
 
 import os
 import sys
+import random
 import argparse
 import pathlib
 
@@ -36,16 +37,16 @@ def train(args):
     paddle.summary(model, input_size=(args.batch_size, *img_size))
 
     # 设置优化方法
-    boundaries = [10, 20, 50, 100]
+    boundaries = [10, 20, 50]
     lr = [0.1 ** step * args.lr for step in range(len(boundaries) + 1)]
     scheduler = paddle.optimizer.lr.PiecewiseDecay(boundaries=boundaries, values=lr, verbose=False)
     optimizer = paddle.optimizer.Adam(parameters=model.parameters(), learning_rate=scheduler)
-    # optimizer = paddle.optimizer.Adam(learning_rate=args.lr, parameters=model.parameters()) 
     # 获取损失函数
     ctc_loss = paddle.nn.CTCLoss(blank=num_classes)
 
     # 加载预训练模型
     if args.pretrained:
+        print(f"load pretrained model from {args.pretrained}")
         model.set_state_dict(paddle.load(os.path.join(args.pretrained, 'model.pdparams')))
         optimizer.set_state_dict(paddle.load(os.path.join(args.pretrained, 'optimizer.pdopt')))
 
@@ -54,11 +55,10 @@ def train(args):
     test_step = 0
     for epoch in range(args.num_epoch):
         for batch_id, (inputs, labels) in enumerate(train_loader()):
-            out = model(paddle.to_tensor(inputs, dtype="float32"))
+            out = model(inputs)
             out = paddle.transpose(out, perm=[1, 0, 2])
             input_lengths = paddle.full(shape=[out.shape[1]], fill_value=out.shape[0], dtype="int64")
             label_lengths = paddle.sum(labels != -1, axis=-1, dtype="int64")
-            # label_lengths = paddle.full(shape=[out.shape[1]], fill_value=4, dtype="int64")
             # 计算损失
             loss = ctc_loss(out, labels, input_lengths, label_lengths)
             loss.backward()
@@ -91,9 +91,10 @@ def train(args):
 # 评估模型
 def evaluate(model, test_loader, vocabulary):
     cer_result = []
+    samples = []
     for batch_id, (inputs, labels) in enumerate(test_loader()):
         # 执行识别
-        outs = model(paddle.to_tensor(inputs))
+        outs = model(inputs)
         outs = paddle.nn.functional.softmax(outs)
         # 解码获取识别结果
         truth_list = []
@@ -104,11 +105,13 @@ def evaluate(model, test_loader, vocabulary):
         for label in labels:
             label_text = decoder.label_to_string(label, vocabulary)
             truth_list.append(label_text)
-
+        idx = random.choice(range(len(truth_list)))
+        samples.append((truth_list[idx], pred_list[idx]))
         for pred, truth in zip(*(pred_list, truth_list)):    
             # 计算字错率
             c = decoder.cer(pred, truth) / float(len(truth))
             cer_result.append(c)
+    print("random.sample:", random.sample(samples, 10))
     cer_result = float(np.mean(cer_result))
     return cer_result
 

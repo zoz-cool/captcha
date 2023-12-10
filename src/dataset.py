@@ -31,22 +31,29 @@ class CaptchaDataset(Dataset):
         self.vocabulary = [w.strip() for w in self.vocabulary if w.strip()]
         self._vocabulary_dict = {t: i for i, t in enumerate(self.vocabulary)}
 
-        self.transform = transforms.Compose([
-            transforms.Normalize(mean=[0.55456273, 0.5225813,  0.51677391], std=[0.23375643, 0.23862716, 0.23951546]),
-        ])
+        self.std = np.array([0.23375643, 0.23862716, 0.23951546])
+        self.mean = np.array([0.55456273, 0.5225813,  0.51677391])
+        self.transform = transforms.Compose([transforms.Normalize(mean=self.mean, std=self.std)])
 
+    def restore(self, img_arr):
+        """img_arr恢复为图片对象"""
+        bgr = img_arr.transpose([1, 2, 0])
+        norm = (bgr * self.std + self.mean) * 255.0
+        return norm.astype(np.uint8)
 
     def __getitem__(self, idx):
+        # 加载label
         label_map: dict = self.meta_info[idx]
-        img = cv2.imread(self.dataset_dir + "/" + label_map["path"])
         label = label_map[self.color]
-        img_arr = img.astype("float32").transpose([2, 0, 1]) / 255.0
-        img_arr = self.transform(img_arr)
-
         label_seq = [self._vocabulary_dict[t] for t in label]
         if len(label_seq) < self.max_len:
             label_seq += [-1] * (self.max_len - len(label_seq))
         label_arr = np.array(label_seq).astype("int32")
+
+        # 加载图片
+        img = cv2.imread(self.dataset_dir + "/" + label_map["path"])
+        img_arr = img.astype("float32").transpose([2, 0, 1]) / 255.0
+        # img_arr = self.transform(img_arr)
         
         return img_arr, label_arr
 
