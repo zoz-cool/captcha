@@ -1,3 +1,5 @@
+#! -*- coding: utf-8 -*-
+
 import os
 import sys
 import argparse
@@ -18,35 +20,35 @@ import dataset
 def train(args):
     writer = vdl.LogWriter(logdir=args.log_dir)
 
-    # »ñÈ¡ÑµÁ·Êı¾İ
+    # è·å–è®­ç»ƒæ•°æ®
     train_dataset = dataset.CaptchaDataset(args.dataset_dir, args.words_dict_path, mode="train", color=args.channel)
     train_loader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True)
 
-    # »ñÈ¡²âÊÔÊı¾İ
+    # è·å–æµ‹è¯•æ•°æ®
     test_dataset = dataset.CaptchaDataset(args.dataset_dir, args.words_dict_path, mode="test", color=args.channel)
     test_loader = DataLoader(dataset=test_dataset, batch_size=args.batch_size)
 
-    # »ñÈ¡Ä£ĞÍ
+    # è·å–æ¨¡å‹
     num_classes = len(train_dataset.words_dict)
     model = m.Model(num_classes)
     img_size = train_dataset[0][0].shape
     paddle.summary(model, input_size=(args.batch_size, *img_size))
 
-    # ÉèÖÃÓÅ»¯·½·¨
+    # è®¾ç½®ä¼˜åŒ–æ–¹æ³•
     boundaries = [10, 20, 50]
     lr = [0.1 ** val * args.lr for val in range(len(boundaries) + 1)]
     scheduler = paddle.optimizer.lr.PiecewiseDecay(boundaries=boundaries, values=lr, verbose=False)
     optimizer = paddle.optimizer.Adam(parameters=model.parameters(), learning_rate=scheduler)
 
-    # »ñÈ¡ËğÊ§º¯Êı
+    # è·å–æŸå¤±å‡½æ•°
     ctc_loss = paddle.nn.CTCLoss(blank=num_classes)
 
-    # ¼ÓÔØÔ¤ÑµÁ·Ä£ĞÍ
+    # åŠ è½½é¢„è®­ç»ƒæ¨¡å‹
     if args.pretrained:
         model.set_state_dict(paddle.load(os.path.join(args.pretrained, 'model.pdparams')))
         optimizer.set_state_dict(paddle.load(os.path.join(args.pretrained, 'optimizer.pdopt')))
 
-    # ¿ªÊ¼ÑµÁ·
+    # å¼€å§‹è®­ç»ƒ
     train_step = 0
     test_step = 0
     for epoch in range(args.num_epoch):
@@ -55,40 +57,41 @@ def train(args):
             out = paddle.transpose(out, perm=[1, 0, 2])
             input_lengths = paddle.full(shape=[out.shape[1]], fill_value=out.shape[0], dtype="int64")
             label_lengths = paddle.full(shape=[out.shape[1]], fill_value=4, dtype="int64")
-            # ¼ÆËãËğÊ§
+            # è®¡ç®—æŸå¤±
             loss = ctc_loss(out, labels, input_lengths, label_lengths)
             loss.backward()
+
             optimizer.step()
             optimizer.clear_grad()
-            # ¶à¿¨ÑµÁ·Ö»Ê¹ÓÃÒ»¸ö½ø³Ì´òÓ¡
+            # å¤šå¡è®­ç»ƒåªä½¿ç”¨ä¸€ä¸ªè¿›ç¨‹æ‰“å°
             if batch_id % 100 == 0:
                 print('[%s] Train epoch %d, batch %d, loss: %f' % (datetime.now(), epoch, batch_id, loss))
                 writer.add_scalar('Train loss', loss, train_step)
                 train_step += 1
         if (epoch % 10 == 0 and epoch != 0) or epoch == args.num_epoch - 1:
-            # Ö´ĞĞÆÀ¹À
+            # æ‰§è¡Œè¯„ä¼°
             model.eval()
             cer = evaluate(model, test_loader, train_dataset.words_dict)
             print('[%s] Test epoch %d, cer: %f' % (datetime.now(), epoch, cer))
             writer.add_scalar('Test cer', cer, test_step)
             test_step += 1
             model.train()
-        # ¼ÇÂ¼Ñ§Ï°ÂÊ
+        # è®°å½•å­¦ä¹ ç‡
         writer.add_scalar('Learning rate', scheduler.last_lr, epoch)
         scheduler.step()
-        # ±£´æÄ£ĞÍ
+        # ä¿å­˜æ¨¡å‹
         paddle.jit.save(layer=model, path=args.save_path,
                         input_spec=[InputSpec(shape=[None, *img_size], dtype='float32')])
 
 
-# ÆÀ¹ÀÄ£ĞÍ
+# è¯„ä¼°æ¨¡å‹
 def evaluate(model, test_loader, words_dict):
     cer_result = []
     for batch_id, (inputs, labels) in enumerate(test_loader()):
-        # Ö´ĞĞÊ¶±ğ
+        # æ‰§è¡Œè¯†åˆ«
         outs = model(inputs)
         outs = paddle.nn.functional.softmax(outs)
-        # ½âÂë»ñÈ¡Ê¶±ğ½á¹û
+        # è§£ç è·å–è¯†åˆ«ç»“æœ
         label_list = []
         out_strings = []
         for out in outs:
@@ -99,7 +102,7 @@ def evaluate(model, test_loader, words_dict):
             label_list.append(labels)
         for out_string, label in zip(*(out_strings, label_list)):
             print(label, out_string)
-            # ¼ÆËã×Ö´íÂÊ
+            # è®¡ç®—å­—é”™ç‡
             c = decoder.cer(out_string, label) / float(len(label))
             cer_result.append(c)
     cer_result = float(np.mean(cer_result))

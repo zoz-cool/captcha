@@ -1,54 +1,56 @@
+#! -*- coding: utf-8 -*-
+
 import Levenshtein as Lev
 from itertools import groupby
 import paddle
 
 
 def ctc_greedy_decoder(probs_seq, vocabulary):
-    """CTCÌ°À·£¨×î¼ÑÂ·¾¶£©½âÂëÆ÷¡£
-    ÓÉ×î¿ÉÄÜµÄÁîÅÆ×é³ÉµÄÂ·¾¶±»½øÒ»²½ºó´¦Àí
-    É¾³ıÁ¬ĞøµÄÖØ¸´ºÍËùÓĞµÄ¿Õ°×¡£
-    :param probs_seq: Ã¿¸ö´Ê»ã±íÉÏ¸ÅÂÊµÄ¶şÎ¬ÁĞ±í×Ö·û¡£
-                      Ã¿¸öÔªËØ¶¼ÊÇ¸¡µã¸ÅÂÊÁĞ±íÎªÒ»¸ö×Ö·û¡£
+    """CTCè´ªå©ªï¼ˆæœ€ä½³è·¯å¾„ï¼‰è§£ç å™¨ã€‚
+    ç”±æœ€å¯èƒ½çš„ä»¤ç‰Œç»„æˆçš„è·¯å¾„è¢«è¿›ä¸€æ­¥åå¤„ç†
+    åˆ é™¤è¿ç»­çš„é‡å¤å’Œæ‰€æœ‰çš„ç©ºç™½ã€‚
+    :param probs_seq: æ¯ä¸ªè¯æ±‡è¡¨ä¸Šæ¦‚ç‡çš„äºŒç»´åˆ—è¡¨å­—ç¬¦ã€‚
+                      æ¯ä¸ªå…ƒç´ éƒ½æ˜¯æµ®ç‚¹æ¦‚ç‡åˆ—è¡¨ä¸ºä¸€ä¸ªå­—ç¬¦ã€‚
     :type probs_seq: list
-    :param vocabulary: ´Ê»ã±í
+    :param vocabulary: è¯æ±‡è¡¨
     :type vocabulary: list
-    :return: ½âÂë½á¹û×Ö·û´®
+    :return: è§£ç ç»“æœå­—ç¬¦ä¸²
     :rtype: baseline
     """
-    # ³ß´çÑéÖ¤
+    # å°ºå¯¸éªŒè¯
     for probs in probs_seq:
         if not len(probs) == len(vocabulary) + 1:
-            raise ValueError("probs_seq ³ß´çÓë´Ê»ã²»Æ¥Åä")
-    # argmaxÒÔ»ñµÃÃ¿¸öÊ±¼ä²½³¤µÄ×î¼ÑÖ¸±ê
+            raise ValueError("probs_seq å°ºå¯¸ä¸è¯æ±‡ä¸åŒ¹é…")
+    # argmaxä»¥è·å¾—æ¯ä¸ªæ—¶é—´æ­¥é•¿çš„æœ€ä½³æŒ‡æ ‡
     max_index_list = paddle.argmax(probs_seq, -1).numpy()
-    # É¾³ıÁ¬ĞøµÄÖØ¸´Ë÷Òı
+    # åˆ é™¤è¿ç»­çš„é‡å¤ç´¢å¼•
     index_list = [index_group[0] for index_group in groupby(max_index_list)]
-    # É¾³ı¿Õ°×Ë÷Òı
+    # åˆ é™¤ç©ºç™½ç´¢å¼•
     blank_index = len(vocabulary)
     index_list = [index for index in index_list if index != blank_index]
-    # ½«Ë÷ÒıÁĞ±í×ª»»Îª×Ö·û´®
+    # å°†ç´¢å¼•åˆ—è¡¨è½¬æ¢ä¸ºå­—ç¬¦ä¸²
     return ''.join([vocabulary[index] for index in index_list])[:4]
 
 
 def label_to_string(label, vocabulary):
-    """±êÇ©×ªÎÄ×Ö
+    """æ ‡ç­¾è½¬æ–‡å­—
 
-    :param label: ½á¹ûµÄ±êÇ©£¬»òÕßÊı¾İ¼¯µÄ±êÇ©
+    :param label: ç»“æœçš„æ ‡ç­¾ï¼Œæˆ–è€…æ•°æ®é›†çš„æ ‡ç­¾
     :type label: list
-    :param vocabulary: ´Ê»ã±í
+    :param vocabulary: è¯æ±‡è¡¨
     :type vocabulary: list
-    :return: ½âÂë½á¹û×Ö·û´®
+    :return: è§£ç ç»“æœå­—ç¬¦ä¸²
     :rtype: baseline
     """
     return ''.join([vocabulary[index] for index in label])
 
 
 def cer(out_string, target_string):
-    """Í¨¹ı¼ÆËãÁ½¸ö×Ö·û´®µÄ¾àÀë£¬µÃ³ö×Ö´íÂÊ
+    """é€šè¿‡è®¡ç®—ä¸¤ä¸ªå­—ç¬¦ä¸²çš„è·ç¦»ï¼Œå¾—å‡ºå­—é”™ç‡
 
     Arguments:
-        out_string (string): ±È½ÏµÄ×Ö·û´®
-        target_string (string): ±È½ÏµÄ×Ö·û´®
+        out_string (string): æ¯”è¾ƒçš„å­—ç¬¦ä¸²
+        target_string (string): æ¯”è¾ƒçš„å­—ç¬¦ä¸²
     """
     s1, s2, = out_string.replace(" ", ""), target_string.replace(" ", "")
     return Lev.distance(s1, s2)
