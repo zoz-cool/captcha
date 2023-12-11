@@ -11,3 +11,4 @@ inference/
 .DS_Store
 *.tar
 *.tgz
+output/*

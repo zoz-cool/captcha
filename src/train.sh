@@ -3,12 +3,12 @@
 PROJ_DIR=$(dirname $(dirname $(readlink -f "$0")))
 DATASET_DIR=${PROJ_DIR}/dataset
 
-BATCH_SIZE=256
+BATCH_SIZE=200
 NUM_EPOCH=100
 LR=0.01
 PRETRAINED=
 CHANNEL=red
-SAVE_PER_EPOCH=1
+SAVE_PER_EPOCH=2
 
 cd ${PROJ_DIR}/src
 

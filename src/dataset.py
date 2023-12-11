@@ -16,7 +16,7 @@ class CaptchaDataset(Dataset):
         self.color = color
         self.dataset_dir = dataset_dir
 
-        candidates = ["red", "blue", "black", "yellow"]
+        candidates = ["red", "blue", "black", "yellow", "text"]
         assert color in candidates, f"color only can be one of {candidates}"
 
         assert mode in ["train", "test"], "mode can only be train or test!"
@@ -32,13 +32,13 @@ class CaptchaDataset(Dataset):
         self._vocabulary_dict = {t: i for i, t in enumerate(self.vocabulary)}
 
         self.std = np.array([0.23375643, 0.23862716, 0.23951546])
-        self.mean = np.array([0.55456273, 0.5225813,  0.51677391])
+        self.mean = np.array([0.55456273, 0.5225813, 0.51677391])
         self.transform = transforms.Compose([transforms.Normalize(mean=self.mean, std=self.std)])
 
     def restore(self, img_arr):
         """img_arr恢复为图片对象"""
-        bgr = img_arr.transpose([1, 2, 0])
-        norm = (bgr * self.std + self.mean) * 255.0
+        img = img_arr.transpose([1, 2, 0])
+        norm = (img * self.std + self.mean) * 255.0
         return norm.astype(np.uint8)
 
     def __getitem__(self, idx):
@@ -53,8 +53,8 @@ class CaptchaDataset(Dataset):
         # 加载图片
         img = Image.open(self.dataset_dir + "/" + label_map["path"]).convert("RGB")
         img_arr = np.array(img, np.float32).transpose([2, 0, 1]) / 255.0
-        # img_arr = self.transform(img_arr)
-        
+        img_arr = self.transform(img_arr)
+
         return img_arr, label_arr
 
     def __len__(self):
