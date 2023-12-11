@@ -3,9 +3,9 @@
 PROJ_DIR=$(dirname $(dirname $(readlink -f "$0")))
 DATASET_DIR=${PROJ_DIR}/dataset_simple36
 
-BATCH_SIZE=200
+BATCH_SIZE=100
 NUM_EPOCH=100
-LR=0.01
+LR=0.001
 PRETRAINED=
 CHANNEL=red
 EVAL_PER_EPOCH=2

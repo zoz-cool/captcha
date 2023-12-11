@@ -60,10 +60,7 @@ class Trainer:
         paddle.summary(self.model, input_size=(self.args.batch_size, *self.img_size))
 
         # 设置优化方法
-        boundaries = [10, 20, 50, 100]
-        step_lr_list = [0.1 ** step * self.args.lr for step in range(len(boundaries) + 1)]
-        self.scheduler = paddle.optimizer.lr.PiecewiseDecay(boundaries=boundaries, values=step_lr_list, verbose=False)
-        self.optimizer = paddle.optimizer.Adam(parameters=self.model.parameters(), learning_rate=self.scheduler)
+        self.optimizer = paddle.optimizer.Adam(parameters=self.model.parameters(), learning_rate=self.args.lr)
         # 获取损失函数
         self.ctc_loss = paddle.nn.CTCLoss(blank=self.num_classes)
 
@@ -86,12 +83,11 @@ class Trainer:
         # 打印日志
         if batch_id % 100 == 0:
             print('[%s] Train epoch %d, batch %d, lr %f, loss: %f' % (
-                datetime.now(), epoch_id, batch_id, self.scheduler.last_lr, float(loss)))
+                datetime.now(), epoch_id, batch_id, self.args.lr, float(loss)))
             self.writer.add_scalar('Train loss', float(loss), self.train_steps)
-            self.train_step += 1
+            self.train_steps += 1
         # 记录学习率
-        self.writer.add_scalar('Learning rate', self.scheduler.last_lr, epoch_id)
-        self.scheduler.step()
+        self.writer.add_scalar('Learning rate', self.args.lr, epoch_id)
 
     def test_epoch(self, epoch_id):
         if (epoch_id % self.args.eval_per_epoch == 0 and epoch_id != 0) or epoch_id == self.args.num_epoch - 1:
@@ -105,6 +101,7 @@ class Trainer:
         """保存模型"""
         if (epoch_id % self.args.save_per_epoch == 0 and epoch_id != 0) or (epoch_id == self.args.num_epoch - 1) or (
                 epoch_id == 0 and self.args.save_per_epoch == 1):
+            os.makedirs(self.args.save_path, exist_ok=True)
             # 移除超出限制的模型
             epoch_dirs = [e_dir for e_dir in os.listdir(self.args.save_path) if re.match(r"^e\d+$", e_dir)]
             if len(epoch_dirs) >= self.args.max_keep:
@@ -179,6 +176,8 @@ def parse_args():
     parser.add_argument("--eval_per_epoch", type=int, default=2)
     parser.add_argument("--save_per_epoch", type=int, default=1)
     parser.add_argument("--max_keep", type=int, default=3)
+    parser.add_argument("--max_len", type=int, default=6)
+
     return parser.parse_args(sys.argv[1:])
 
 
