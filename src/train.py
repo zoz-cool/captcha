@@ -60,7 +60,8 @@ class Trainer:
         paddle.summary(self.model, input_size=(self.args.batch_size, *self.img_size))
 
         # 设置优化方法
-        self.optimizer = paddle.optimizer.Adam(parameters=self.model.parameters(), learning_rate=self.args.lr)
+        self.scheduler = paddle.optimizer.lr.ReduceOnPlateau(learning_rate=self.args.lr, factor=0.1, patience=10)
+        self.optimizer = paddle.optimizer.Adam(parameters=self.model.parameters(), learning_rate=self.scheduler)
         # 获取损失函数
         self.ctc_loss = paddle.nn.CTCLoss(blank=self.num_classes)
 
@@ -83,11 +84,12 @@ class Trainer:
         # 打印日志
         if batch_id % 100 == 0:
             print('[%s] Train epoch %d, batch %d, lr %f, loss: %f' % (
-                datetime.now(), epoch_id, batch_id, self.args.lr, float(loss)))
+                datetime.now(), epoch_id, batch_id, self.scheduler.last_lr, float(loss)))
             self.writer.add_scalar('Train loss', float(loss), self.train_steps)
             self.train_steps += 1
         # 记录学习率
-        self.writer.add_scalar('Learning rate', self.args.lr, epoch_id)
+        self.writer.add_scalar('Learning rate', self.scheduler.last_lr, epoch_id)
+        return float(loss)
 
     def test_epoch(self, epoch_id):
         if (epoch_id % self.args.eval_per_epoch == 0 and epoch_id != 0) or epoch_id == self.args.num_epoch - 1:
@@ -116,8 +118,12 @@ class Trainer:
 
     def train_epoch(self, epoch_id):
         """训练一个epoch"""
+        loss_list = []
         for batch_id, input_data in enumerate(self.train_loader()):
-            self.train_step(epoch_id, batch_id, input_data)
+            loss = self.train_step(epoch_id, batch_id, input_data)
+            loss_list.append(loss)
+        
+        self.scheduler.step(np.mean(loss_list), epoch_id)
 
     def train(self):
         """开始训练"""
