@@ -3,3 +3,4 @@ numpy
 paddlepaddle-gpu
 Levenshtein
 visualdl
+prettytable

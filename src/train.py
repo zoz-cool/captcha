@@ -11,6 +11,7 @@ from datetime import datetime
 
 import paddle
 import numpy as np
+import prettytable
 from paddle.io import DataLoader
 import visualdl as vdl
 from paddle.static import InputSpec
@@ -44,6 +45,12 @@ class Trainer:
 
         self.num_classes = len(self.train_dataset.vocabulary)
 
+        t = prettytable.PrettyTable(["field", "number"])
+        t.add_row(["num_classes", self.num_classes])
+        t.add_row(["train_dataset", len(self.train_dataset)])
+        t.add_row(["test_dataset", len(self.test_dataset)])
+        print(t)
+
     def _init_model(self):
         # 获取模型
         self.model = model.Model(self.num_classes, self.args.max_len)
@@ -51,7 +58,6 @@ class Trainer:
 
         # 打印模型和数据信息
         paddle.summary(self.model, input_size=(self.args.batch_size, *self.img_size))
-        print(f"train dataset: {len(self.train_dataset)}\ntest dataset: {len(self.test_dataset)}\n{'--' * 50}\n")
 
         # 设置优化方法
         boundaries = [10, 20, 50, 100]
@@ -77,10 +83,11 @@ class Trainer:
         loss.backward()
         self.optimizer.step()
         self.optimizer.clear_grad()
-        # 多卡训练只使用一个进程打印
+        # 打印日志
         if batch_id % 100 == 0:
-            print('[%s] Train epoch %d, batch %d, loss: %f' % (datetime.now(), epoch_id, batch_id, loss))
-            self.writer.add_scalar('Train loss', loss, self.train_steps)
+            print('[%s] Train epoch %d, batch %d, lr %f, loss: %f' % (
+                datetime.now(), epoch_id, batch_id, self.scheduler.last_lr, float(loss)))
+            self.writer.add_scalar('Train loss', float(loss), self.train_steps)
             self.train_step += 1
         # 记录学习率
         self.writer.add_scalar('Learning rate', self.scheduler.last_lr, epoch_id)
@@ -116,8 +123,7 @@ class Trainer:
         """训练一个epoch"""
         for batch_id, input_data in enumerate(self.train_loader()):
             self.train_step(epoch_id, batch_id, input_data)
-            self.test_epoch(epoch_id)
-            self.save_epoch(epoch_id)
+
 
     def train(self):
         """开始训练"""
