@@ -18,7 +18,8 @@ then
 fi
 
 set -x
-python train.py --dataset_dir ${DATASET_DIR} \
+log_file="train-$(date +%H%M%S).log"
+nohup python train.py --dataset_dir ${DATASET_DIR} \
                 --vocabulary_path ${PROJ_DIR}/assets/vocabulary.txt \
                 --save_path ${PROJ_DIR}/output/checkpoint \
                 --log_dir ${PROJ_DIR}/output/log \
@@ -27,4 +28,5 @@ python train.py --dataset_dir ${DATASET_DIR} \
                 --lr ${LR} \
                 --channel ${CHANNEL} \
                 --eval_per_epoch ${EVAL_PER_EPOCH} \
-                ${PRETRAINED}
+                ${PRETRAINED} > ${log_file} 2>&1 &
+echo pid: $!

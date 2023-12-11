@@ -46,7 +46,7 @@ class Trainer:
 
     def _init_model(self):
         # 获取模型
-        self.model = model.Model2(self.num_classes, self.args.max_len)
+        self.model = model.Model(self.num_classes, self.args.max_len)
         self.img_size = self.train_dataset[0][0].shape
 
         # 打印模型和数据信息
