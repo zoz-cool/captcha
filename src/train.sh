@@ -1,14 +1,14 @@
 #! /bin/bash
 
 PROJ_DIR=$(dirname $(dirname $(readlink -f "$0")))
-DATASET_DIR=${PROJ_DIR}/dataset
+DATASET_DIR=${PROJ_DIR}/dataset_simple36
 
 BATCH_SIZE=200
 NUM_EPOCH=100
 LR=0.01
 PRETRAINED=
 CHANNEL=red
-SAVE_PER_EPOCH=2
+EVAL_PER_EPOCH=2
 
 cd ${PROJ_DIR}/src
 
@@ -18,7 +18,8 @@ then
 fi
 
 set -x
-python train.py --dataset_dir ${DATASET_DIR} \
+log_file="train-$(date +%H%M%S).log"
+nohup python train.py --dataset_dir ${DATASET_DIR} \
                 --vocabulary_path ${PROJ_DIR}/assets/vocabulary.txt \
                 --save_path ${PROJ_DIR}/output/checkpoint \
                 --log_dir ${PROJ_DIR}/output/log \
@@ -26,5 +27,6 @@ python train.py --dataset_dir ${DATASET_DIR} \
                 --num_epoch ${NUM_EPOCH} \
                 --lr ${LR} \
                 --channel ${CHANNEL} \
-                --save_per_epoch ${SAVE_PER_EPOCH} \
-                ${PRETRAINED}
+                --eval_per_epoch ${EVAL_PER_EPOCH} \
+                ${PRETRAINED} > ${log_file} 2>&1 &
+echo pid: $!

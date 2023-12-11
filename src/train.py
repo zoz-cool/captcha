@@ -96,12 +96,10 @@ class Trainer:
     def test_epoch(self, epoch_id):
         if (epoch_id % self.args.eval_per_epoch == 0 and epoch_id != 0) or epoch_id == self.args.num_epoch - 1:
             # 执行评估
-            self.model.eval()
             cer = self.evaluate()
             print('[%s] Test epoch %d, cer: %f' % (datetime.now(), epoch_id, cer))
             self.writer.add_scalar('Test cer', cer, self.test_steps)
             self.test_steps += 1
-            self.model.train()
 
     def save_epoch(self, epoch_id):
         """保存模型"""
@@ -112,7 +110,7 @@ class Trainer:
             if len(epoch_dirs) >= self.args.max_keep:
                 epoch_dirs = sorted(epoch_dirs, key=lambda e_dir: int(e_dir[1:]))
                 for epoch_dir in epoch_dirs[:len(epoch_dirs) - self.args.max_keep + 1]:
-                    os.system(f"rm -rf {epoch_dir}")
+                    os.system(f"rm -rf {str(self.args.save_path)}/{epoch_dir}")
             # 保存模型
             print('[%s] Save model on epoch %d' % (datetime.now(), epoch_id))
             save_epoch_path = "/".join([self.args.save_path, f"e{epoch_id}", "model"])
@@ -124,14 +122,18 @@ class Trainer:
         for batch_id, input_data in enumerate(self.train_loader()):
             self.train_step(epoch_id, batch_id, input_data)
 
-
     def train(self):
         """开始训练"""
-        for epoch in range(self.args.num_epoch):
-            self.train_epoch(epoch)
+        if os.path.exists(self.args.save_path):
+            os.system(f"rm -rf {self.args.save_path}")
+        for epoch_id in range(self.args.num_epoch):
+            self.train_epoch(epoch_id)
+            self.test_epoch(epoch_id)
+            self.save_epoch(epoch_id)
 
     def evaluate(self):
         """评估模型"""
+        self.model.eval()
         cer_result = []
         samples = []
         for batch_id, (inputs, labels) in enumerate(self.test_loader()):
@@ -156,6 +158,7 @@ class Trainer:
                 cer_result.append(c)
         print("random.sample:", random.sample(samples, 10))
         cer_result = float(np.mean(cer_result))
+        self.model.train()
         return cer_result
 
 
