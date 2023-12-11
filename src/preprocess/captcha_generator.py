@@ -1,3 +1,5 @@
+#! -*- coding: utf-8 -*-
+
 import json
 import os
 import random
@@ -17,7 +19,9 @@ class CaptchaGenerator:
     生成验证码图片
     """
 
-    def __init__(self, font_path, font2_path, vocabulary_path, width=120, height=50, max_words=6):
+    def __init__(
+        self, font_path, font2_path, vocabulary_path, width=120, height=50, max_words=6
+    ):
         self.width = width
         self.height = height
         self.max_words = max_words
@@ -27,11 +31,15 @@ class CaptchaGenerator:
         self.characters = [chr(i) for i in range(65, 91)]  # 大写字母
         self.characters += [str(i) for i in range(10)]  # 阿拉伯数字
         self.chinese_words = self._load_vocabulary()  # 汉字
-    
+
     def _load_vocabulary(self):
         with open(self.vocabulary_path, encoding="utf-8") as f:
             chinese_words = f.readlines()
-        chinese_words = [w.strip() for w in chinese_words if w.strip() and w.strip() not in self.characters]
+        chinese_words = [
+            w.strip()
+            for w in chinese_words
+            if w.strip() and w.strip() not in self.characters
+        ]
         print(f"total chinese words: {len(chinese_words)}")
         return chinese_words
 
@@ -66,7 +74,7 @@ class CaptchaGenerator:
     def gen_next(self, min_num=4, max_num=6):
         assert min_num <= max_num <= self.max_words, "不能超出最大字符数"
         bg_colors = self.get_light_colors(1)
-        img = Image.new('RGBA', (self.width, self.height), color=bg_colors[0])
+        img = Image.new("RGBA", (self.width, self.height), color=bg_colors[0])
         self.draw_river(img)
         self.draw_line(img)
         label = self.draw_text_rotate(img, random.randint(min_num, max_num))
@@ -78,7 +86,9 @@ class CaptchaGenerator:
         bg_colors = self.get_dark_colors(1)
         # 创建两条平行的样条曲线
         xs = np.linspace(0, self.width, num=500)
-        y1 = 15 * np.sin(2 * np.pi * xs / (3 * self.width) + np.random.uniform(-np.pi, np.pi))
+        y1 = 15 * np.sin(
+            2 * np.pi * xs / (3 * self.width) + np.random.uniform(-np.pi, np.pi)
+        )
         y2 = y1 + self.height  # 修改这里使曲线更宽
 
         # 使用scipy的make_interp_spline函数生成样条曲线
@@ -89,13 +99,21 @@ class CaptchaGenerator:
         y2new = spl2(xnew)
 
         # 将两条曲线之间的区域填充颜色，设置颜色为淡绿色
-        points = list(zip(np.concatenate([xnew, xnew[::-1]]), np.concatenate([y1new, y2new[::-1]])))
+        points = list(
+            zip(
+                np.concatenate([xnew, xnew[::-1]]), np.concatenate([y1new, y2new[::-1]])
+            )
+        )
         draw.polygon(points, fill=bg_colors[0])
         # 添加带颜色的噪点
         for _ in range(200):  # 添加1000个噪点
             x = random.randint(0, self.width)
             y = random.randint(0, self.height)
-            color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))  # 随机颜色
+            color = (
+                random.randint(0, 255),
+                random.randint(0, 255),
+                random.randint(0, 255),
+            )  # 随机颜色
             draw.point((x, y), fill=color)
 
     @staticmethod
@@ -135,7 +153,12 @@ class CaptchaGenerator:
         :return: label
         """
 
-        colors = {(0, 0, 0): "black", (255, 0, 0): "red", (0, 0, 255): "blue", (255, 255, 0): "yellow"}  # 随机颜色
+        colors = {
+            (0, 0, 0): "black",
+            (255, 0, 0): "red",
+            (0, 0, 255): "blue",
+            (255, 255, 0): "yellow",
+        }  # 随机颜色
         label = []  # 存储label: 类型， 0-->字母或数字，1-->汉字
 
         word_width = int(self.width / self.max_words)
@@ -154,8 +177,8 @@ class CaptchaGenerator:
             label.append([text, 0])
         for i in range(num):
             text, t = label[num - 1 - i]
-            img0 = Image.new('RGBA', img.size, (255, 255, 255, 0))
-            draw0 = ImageDraw.Draw(img0, mode='RGBA')
+            img0 = Image.new("RGBA", img.size, (255, 255, 255, 0))
+            draw0 = ImageDraw.Draw(img0, mode="RGBA")
             # 放在中间
             x = self.width / 2 - self.font.size / 2
             y = self.height / 2 - self.font.size
@@ -201,35 +224,47 @@ def batch_save(imgs, labels, output_dir: pathlib.Path, test_ratio=0.4, index=0):
             train_records.append(label)
         else:
             test_records.append(label)
-    with open(train_file, "w", encoding="utf-8") as f1, open(test_file, "w", encoding="utf-8") as f2:
+    with open(train_file, "w", encoding="utf-8") as f1, open(
+        test_file, "w", encoding="utf-8"
+    ) as f2:
         json.dump(train_records, f1, ensure_ascii=False, indent=4)
         json.dump(test_records, f2, ensure_ascii=False, indent=4)
 
 
-def main():
-    proj_dir = pathlib.Path(__file__).parent.parent.parent.absolute()
-    assets_dir = proj_dir / "assets"
-    font_path = str(assets_dir / "font/3D-Hand-Drawns-1.ttf")
-    font2_path = str(assets_dir / "font/HanYiFangSongJian-1.ttf")
-    vocabulary_path = str(assets_dir / "vocabulary.txt")
+proj_dir = pathlib.Path(__file__).parent.parent.parent.absolute()
+assets_dir = proj_dir / "assets"
+font_path = str(assets_dir / "font/3D-Hand-Drawns-1.ttf")
+font2_path = str(assets_dir / "font/HanYiFangSongJian-1.ttf")
+vocabulary_path = str(assets_dir / "vocabulary.txt")
 
+generator = CaptchaGenerator(
+    font_path, font2_path, vocabulary_path, width=120, height=50
+)
+
+
+def main():
     args = parse_args()
     if os.path.isdir(args.output):
         shutil.rmtree(args.output)
-    gen = CaptchaGenerator(font_path, font2_path, vocabulary_path, width=120, height=50, max_words=args.max_num)
     batch_imgs = []
     batch_labels = []
     batch_size = 10_000
     tbar = tqdm(range(args.num))
     batch_count = 0
+    generator.max_words = args.max_num
     for i in tbar:
-        img, label = gen.gen_next(min_num=args.min_num, max_num=args.max_num)
+        img, label = generator.gen_next(min_num=args.min_num, max_num=args.max_num)
         batch_imgs.append(img)
         batch_labels.append(label)
         tbar.set_description(f"index={i + 1}")
         if (i > 0 and i % batch_size == 0) or i == args.num - 1:
-            batch_save(batch_imgs, batch_labels, args.output, test_ratio=args.test_ratio,
-                       index=batch_size * batch_count)
+            batch_save(
+                batch_imgs,
+                batch_labels,
+                args.output,
+                test_ratio=args.test_ratio,
+                index=batch_size * batch_count,
+            )
             batch_imgs = []
             batch_labels = []
             batch_count += 1
@@ -239,13 +274,15 @@ def parse_args():
     proj_dir = pathlib.Path(__file__).parent.parent.parent.absolute()
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num', type=int, required=True, help="需要生成的样本数量")
-    parser.add_argument('--min_num', type=int, default=4, help="验证码最短长度")
-    parser.add_argument('--max_num', type=int, default=6, help="验证码最大长度")
-    parser.add_argument('--output', type=pathlib.Path, default=proj_dir / "dataset", help="数据保存路径")
-    parser.add_argument('--test_ratio', type=float, default=0.4, help="测试机所占比例")
+    parser.add_argument("--num", type=int, required=True, help="需要生成的样本数量")
+    parser.add_argument("--min_num", type=int, default=4, help="验证码最短长度")
+    parser.add_argument("--max_num", type=int, default=6, help="验证码最大长度")
+    parser.add_argument(
+        "--output", type=pathlib.Path, default=proj_dir / "dataset", help="数据保存路径"
+    )
+    parser.add_argument("--test_ratio", type=float, default=0.4, help="测试机所占比例")
     return parser.parse_args(sys.argv[1:])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
