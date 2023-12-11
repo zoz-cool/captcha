@@ -46,7 +46,7 @@ class Trainer:
 
     def _init_model(self):
         # 获取模型
-        self.model = model.Model(self.num_classes, self.args.max_len)
+        self.model = model.Model2(self.num_classes, self.args.max_len)
         self.img_size = self.train_dataset[0][0].shape
 
         # 打印模型和数据信息
@@ -81,7 +81,7 @@ class Trainer:
         if batch_id % 100 == 0:
             print('[%s] Train epoch %d, batch %d, loss: %f' % (datetime.now(), epoch_id, batch_id, loss))
             self.writer.add_scalar('Train loss', loss, self.train_steps)
-            self.train_step += 1
+            self.train_steps += 1
         # 记录学习率
         self.writer.add_scalar('Learning rate', self.scheduler.last_lr, epoch_id)
         self.scheduler.step()
@@ -100,12 +100,13 @@ class Trainer:
         """保存模型"""
         if (epoch_id % self.args.save_per_epoch == 0 and epoch_id != 0) or (epoch_id == self.args.num_epoch - 1) or (
                 epoch_id == 0 and self.args.save_per_epoch == 1):
+            os.makedirs(self.args.save_path, exist_ok=True)
             # 移除超出限制的模型
             epoch_dirs = [e_dir for e_dir in os.listdir(self.args.save_path) if re.match(r"^e\d+$", e_dir)]
             if len(epoch_dirs) >= self.args.max_keep:
                 epoch_dirs = sorted(epoch_dirs, key=lambda e_dir: int(e_dir[1:]))
                 for epoch_dir in epoch_dirs[:len(epoch_dirs) - self.args.max_keep + 1]:
-                    os.system(f"rm -rf {epoch_dir}")
+                    os.system(f"rm -rf {str(self.args.save_path)}/{epoch_dir}")
             # 保存模型
             print('[%s] Save model on epoch %d' % (datetime.now(), epoch_id))
             save_epoch_path = "/".join([self.args.save_path, f"e{epoch_id}", "model"])
@@ -116,13 +117,13 @@ class Trainer:
         """训练一个epoch"""
         for batch_id, input_data in enumerate(self.train_loader()):
             self.train_step(epoch_id, batch_id, input_data)
-            self.test_epoch(epoch_id)
-            self.save_epoch(epoch_id)
 
     def train(self):
         """开始训练"""
-        for epoch in range(self.args.num_epoch):
-            self.train_epoch(epoch)
+        for epoch_id in range(self.args.num_epoch):
+            self.train_epoch(epoch_id)
+            self.test_epoch(epoch_id)
+            self.save_epoch(epoch_id)
 
     def evaluate(self):
         """评估模型"""
@@ -170,6 +171,8 @@ def parse_args():
     parser.add_argument("--eval_per_epoch", type=int, default=2)
     parser.add_argument("--save_per_epoch", type=int, default=1)
     parser.add_argument("--max_keep", type=int, default=3)
+    parser.add_argument("--max_len", type=int, default=6)
+    
     return parser.parse_args(sys.argv[1:])
 
 
