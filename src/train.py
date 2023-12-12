@@ -119,7 +119,7 @@ def parse_args():
     parser.add_argument("--max_keep", type=int, default=3)
     parser.add_argument("--max_len", type=int, default=6)
     parser.add_argument("--auto_num", type=int, default=100_000)
-    parser.add_argument("--simple_mode", type=bool, default=False)
+    parser.add_argument("--simple_mode", type=bool, action="store_true")
 
     return parser.parse_args(sys.argv[1:])
 
