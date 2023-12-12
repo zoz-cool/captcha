@@ -18,6 +18,8 @@ class WordsPrecision(Metric):
 
     def update(self, outputs, labels):
         """更新统计指标"""
+        if not isinstance(outputs, paddle.Tensor):
+            outputs = paddle.to_tensor(outputs)
         # 解码获取识别结果
         for output, label in zip(outputs, labels):
             pred_text = decoder.ctc_greedy_decoder(output, self.vocabulary)

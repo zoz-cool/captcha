@@ -4,6 +4,7 @@ import os
 import sys
 import argparse
 import pathlib
+import shutil
 
 import paddle
 import prettytable
@@ -36,7 +37,8 @@ class Trainer:
             auto_num=self.args.auto_num,
             mode="train",
             channel=self.args.channel,
-            max_len=self.args.max_len
+            max_len=self.args.max_len,
+            simple_mode=self.args.simple_mode
         )
 
         # 获取测试数据
@@ -47,7 +49,8 @@ class Trainer:
             auto_num=min(self.args.auto_num // 2, 100_000),  # 自动生成时测试集数量为训练集的一半，同时限制不超过10w
             mode="test",
             channel=self.args.channel,
-            max_len=self.args.max_len
+            max_len=self.args.max_len,
+            simple_mode=self.args.simple_mode
         )
 
         self.vocabulary = self.train_dataset.vocabulary
@@ -61,9 +64,11 @@ class Trainer:
 
     def _init_model(self):
         # 获取模型
+        channel_num = 5
         m = model.Model(self.num_classes, self.args.max_len)
         self.img_size = self.train_dataset[0][0].shape
         label_size = self.train_dataset[0][1].shape
+        label_size[-1] //= channel_num
         inputs_shape = paddle.static.InputSpec([-1, *self.img_size], dtype='float32', name='input')
         labels_shape = paddle.static.InputSpec([-1, *label_size], dtype='int64', name='label')
         self.model = paddle.Model(m, inputs_shape, labels_shape)
@@ -73,9 +78,9 @@ class Trainer:
 
         # 设置优化方法
         self.scheduler = paddle.optimizer.lr.ReduceOnPlateau(learning_rate=self.args.lr, factor=0.1, patience=10)
-        self.optimizer = paddle.optimizer.Adam(parameters=self.model.parameters(), learning_rate=self.scheduler)
+        self.optimizer = paddle.optimizer.Adam(parameters=self.model.parameters(), learning_rate=self.args.lr)
         # 获取损失函数
-        self.multi_channel_ctc_loss = loss.MultiChannelCTCLoss(self.num_classes, self.args.max_len)
+        self.multi_channel_ctc_loss = loss.MultiChannelCTCLoss(self.num_classes, self.args.max_len, channel_num)
 
         self.model.prepare(self.optimizer, self.multi_channel_ctc_loss, metric.WordsPrecision(self.vocabulary))
 
@@ -86,8 +91,8 @@ class Trainer:
 
     def train(self):
         """开始训练"""
-        if os.path.exists(self.args.save_path):
-            os.system(f"rm -rf {self.args.save_path}")
+        if os.path.exists(self.args.save_dir):
+            shutil.rmtree(self.args.save_dir)
         self.model.fit(train_data=self.train_dataset, eval_data=self.test_dataset, batch_size=self.args.batch_size,
                        shuffle=True, epochs=self.args.num_epoch,
                        eval_freq=self.args.eval_freq, log_freq=10, save_freq=self.args.save_freq,
@@ -114,6 +119,7 @@ def parse_args():
     parser.add_argument("--max_keep", type=int, default=3)
     parser.add_argument("--max_len", type=int, default=6)
     parser.add_argument("--auto_num", type=int, default=100_000)
+    parser.add_argument("--simple_mode", type=bool, default=False)
 
     return parser.parse_args(sys.argv[1:])
 

@@ -32,6 +32,7 @@ class CaptchaDataset(Dataset):
             mode: str = "train",
             channel: str = "text",
             max_len: int = 6,
+            simple_mode: bool = False
     ):
         super(CaptchaDataset, self).__init__()
 
@@ -40,7 +41,7 @@ class CaptchaDataset(Dataset):
         self.max_len = max_len
         self.channel = channel
         self.dataset_dir = dataset_dir
-        self.generator = CaptchaGenerator(vocabulary_path=vocabulary_path, max_words=max_len)
+        self.generator = CaptchaGenerator(vocabulary_path=vocabulary_path, max_words=max_len, simple_mode=simple_mode)
         self.vocabulary = self.generator.vocabulary
         self._vocabulary_dict = {t: i for i, t in enumerate(self.vocabulary)}
 
@@ -82,7 +83,7 @@ class CaptchaDataset(Dataset):
         # 图片加载&转换
         img = img.convert("RGB")
         img_arr = np.array(img, np.float32).transpose([2, 0, 1]) / 255.0
-        img_arr = self.transform(img_arr)
+        img_arr = self.transform(img_arr).transpose(perm=[1, 2, 0])
 
         # 标签处理
         if self.channel != "all":  # 读取指定颜色通道的标签
