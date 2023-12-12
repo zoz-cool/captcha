@@ -1,6 +1,7 @@
 opencv-python
 numpy
-paddlepaddle-gpu
+pillow
+paddlepaddle
 Levenshtein
 visualdl
 prettytable

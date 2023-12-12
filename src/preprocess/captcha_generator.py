@@ -7,41 +7,50 @@ import pathlib
 import argparse
 import shutil
 import sys
+from concurrent.futures import ProcessPoolExecutor
 
 from tqdm import tqdm
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from scipy.interpolate import make_interp_spline
 
+assets_dir = pathlib.Path(__file__).absolute().parent.parent.parent / "assets"
+
 
 class CaptchaGenerator:
     """
     生成验证码图片
+    font_path: （数字+字母）字体路径
+    font2_path: （汉字）字体路径
+    vocabulary_path: 单词表路径
+    width: 图片宽度
+    height: 图片高度
+    max_words: 最大字符数
+    simple_mode: 是否简单模式，简单模式下只包含数字和字母
     """
 
-    def __init__(
-        self, font_path, font2_path, vocabulary_path, width=120, height=50, max_words=6
-    ):
+    def __init__(self, font_path=str(assets_dir / "font/3D-Hand-Drawns-1.ttf"),
+                 font2_path=str(assets_dir / "font/HanYiFangSongJian-1.ttf"),
+                 vocabulary_path=str(assets_dir / "vocabulary.txt"),
+                 width=120, height=50, max_words=6, simple_mode=False):
         self.width = width
         self.height = height
+        self.simple_mode = simple_mode
         self.max_words = max_words
         self.vocabulary_path = vocabulary_path
         self.font = ImageFont.truetype(font_path, 14)
         self.font2 = ImageFont.truetype(font2_path, 32)
         self.characters = [chr(i) for i in range(65, 91)]  # 大写字母
         self.characters += [str(i) for i in range(10)]  # 阿拉伯数字
-        self.chinese_words = self._load_vocabulary()  # 汉字
+        self.vocabulary = self._load_vocabulary()  # 词汇表
+        self.chinese_words = [w for w in self.vocabulary if w not in self.characters]
 
     def _load_vocabulary(self):
         with open(self.vocabulary_path, encoding="utf-8") as f:
-            chinese_words = f.readlines()
-        chinese_words = [
-            w.strip()
-            for w in chinese_words
-            if w.strip() and w.strip() not in self.characters
-        ]
-        print(f"total chinese words: {len(chinese_words)}")
-        return chinese_words
+            vocabulary = f.readlines()
+        vocabulary = [w.strip() for w in vocabulary if w.strip()]
+        print(f"total vocabulary words: {len(vocabulary)}")
+        return vocabulary
 
     @staticmethod
     def get_light_colors(num_colors):
@@ -70,15 +79,6 @@ class CaptchaGenerator:
             dark_colors.append((r, g, b))
 
         return dark_colors
-
-    def gen_next(self, min_num=4, max_num=6):
-        assert min_num <= max_num <= self.max_words, "不能超出最大字符数"
-        bg_colors = self.get_light_colors(1)
-        img = Image.new("RGBA", (self.width, self.height), color=bg_colors[0])
-        self.draw_river(img)
-        self.draw_line(img)
-        label = self.draw_text_rotate(img, random.randint(min_num, max_num))
-        return img, label
 
     def draw_river(self, img: Image.Image):
         draw = ImageDraw.Draw(img)
@@ -200,14 +200,33 @@ class CaptchaGenerator:
         label_map["text"] = "".join([text for text, _, _ in label])
         return label_map
 
+    def gen_one(self, min_num=4, max_num=6):
+        """生成一个验证码"""
+        assert min_num <= max_num <= self.max_words, "不能超出最大字符数"
+        bg_colors = self.get_light_colors(1)
+        img = Image.new("RGBA", (self.width, self.height), color=bg_colors[0])
+        self.draw_river(img)
+        self.draw_line(img)
+        # 通过设置比率为0控制不生成汉字
+        chinese_words_ratio = 0 if self.simple_mode else 0.4
+        label = self.draw_text_rotate(img, random.randint(min_num, max_num), ratio=chinese_words_ratio)
+        return img, label
 
-def batch_save(imgs, labels, output_dir: pathlib.Path, test_ratio=0.4, index=0):
+    def gen_batch(self, batch_size=100, min_num=4, max_num=6):
+        """批次生成"""
+        assert min_num <= max_num <= self.max_words, "不能超出最大字符数"
+        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+            results = executor.map(self.gen_one, [min_num] * batch_size, [max_num] * batch_size)
+        return list(results)
+
+
+def save_batch(results, output_dir: pathlib.Path, test_ratio=0.4, index=0):
     train_file = output_dir / "train.json"
     test_file = output_dir / "test.json"
     image_dir = output_dir.absolute() / "images"
     os.makedirs(image_dir, exist_ok=True)
-    for i, img in enumerate(imgs):
-        save_path = image_dir / f"{index + i:0>7d}-{labels[i]['text']}.png"
+    for i, (img, label) in enumerate(results):
+        save_path = image_dir / f"{index + i:0>7d}-{label['text']}.png"
         img.save(save_path)
     train_records = []
     test_records = []
@@ -217,70 +236,53 @@ def batch_save(imgs, labels, output_dir: pathlib.Path, test_ratio=0.4, index=0):
     if os.path.isfile(test_file):
         with open(test_file, "r", encoding="utf-8") as f:
             test_records = json.load(f)
-    for i, label in enumerate(labels):
+    for i, (_, label) in enumerate(results):
         label["index"] = index + i
-        label["path"] = "images/" + f"{index + i:0>7d}-{labels[i]['text']}.png"
+        label["path"] = "images/" + f"{index + i:0>7d}-{label['text']}.png"
         if random.random() > test_ratio:
             train_records.append(label)
         else:
             test_records.append(label)
     with open(train_file, "w", encoding="utf-8") as f1, open(
-        test_file, "w", encoding="utf-8"
+            test_file, "w", encoding="utf-8"
     ) as f2:
         json.dump(train_records, f1, ensure_ascii=False, indent=4)
         json.dump(test_records, f2, ensure_ascii=False, indent=4)
 
 
-proj_dir = pathlib.Path(__file__).parent.parent.parent.absolute()
-assets_dir = proj_dir / "assets"
-font_path = str(assets_dir / "font/3D-Hand-Drawns-1.ttf")
-font2_path = str(assets_dir / "font/HanYiFangSongJian-1.ttf")
-vocabulary_path = str(assets_dir / "vocabulary.txt")
-
-generator = CaptchaGenerator(
-    font_path, font2_path, vocabulary_path, width=120, height=50
-)
-
-
 def main():
     args = parse_args()
+
     if os.path.isdir(args.output):
         shutil.rmtree(args.output)
-    batch_imgs = []
-    batch_labels = []
-    batch_size = 10_000
-    tbar = tqdm(range(args.num))
-    batch_count = 0
-    generator.max_words = args.max_num
+
+    batch_size = 10000
+    gen = CaptchaGenerator()
+    gen.max_words = args.max_num
+
+    tbar = tqdm(range(args.num // batch_size + int(args.num % batch_size != 0)))
     for i in tbar:
-        img, label = generator.gen_next(min_num=args.min_num, max_num=args.max_num)
-        batch_imgs.append(img)
-        batch_labels.append(label)
-        tbar.set_description(f"index={i + 1}")
-        if (i > 0 and i % batch_size == 0) or i == args.num - 1:
-            batch_save(
-                batch_imgs,
-                batch_labels,
-                args.output,
-                test_ratio=args.test_ratio,
-                index=batch_size * batch_count,
-            )
-            batch_imgs = []
-            batch_labels = []
-            batch_count += 1
+        batch_data = gen.gen_batch(batch_size=batch_size, min_num=args.min_num, max_num=args.max_num)
+        tbar.set_description(f"batch={i + 1}")
+
+        save_batch(
+            batch_data,
+            args.output,
+            test_ratio=args.test_ratio,
+            index=batch_size * i,
+        )
 
 
 def parse_args():
-    proj_dir = pathlib.Path(__file__).parent.parent.parent.absolute()
+    proj_dir = pathlib.Path(__file__).absolute().parent.parent.parent
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--num", type=int, required=True, help="需要生成的样本数量")
     parser.add_argument("--min_num", type=int, default=4, help="验证码最短长度")
     parser.add_argument("--max_num", type=int, default=6, help="验证码最大长度")
-    parser.add_argument(
-        "--output", type=pathlib.Path, default=proj_dir / "dataset", help="数据保存路径"
-    )
-    parser.add_argument("--test_ratio", type=float, default=0.4, help="测试机所占比例")
+    parser.add_argument("--output", type=pathlib.Path, default=proj_dir / "dataset", help="数据保存路径")
+    parser.add_argument("--test_ratio", type=float, default=0.4, help="测试集所占比例")
+
     return parser.parse_args(sys.argv[1:])
 
 
