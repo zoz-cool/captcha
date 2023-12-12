@@ -65,7 +65,7 @@ class Trainer:
     def _init_model(self):
         # 获取模型
         channel_num = 5
-        m = model.Model(self.num_classes, self.args.max_len)
+        m = model.Model(self.num_classes, self.args.max_len, channel_num)
         self.img_size = self.train_dataset[0][0].shape
         label_size = self.train_dataset[0][1].shape
         label_size[-1] //= channel_num
@@ -119,7 +119,7 @@ def parse_args():
     parser.add_argument("--max_keep", type=int, default=3)
     parser.add_argument("--max_len", type=int, default=6)
     parser.add_argument("--auto_num", type=int, default=100_000)
-    parser.add_argument("--simple_mode", type=bool, action="store_true")
+    parser.add_argument("--simple_mode", action="store_true")
 
     return parser.parse_args(sys.argv[1:])
 

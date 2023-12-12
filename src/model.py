@@ -5,7 +5,7 @@ import paddle.nn as nn
 
 
 class Model(nn.Layer):
-    def __init__(self, num_classes, max_len=6):
+    def __init__(self, num_classes, max_len=6, channel_num=5):
         super(Model, self).__init__()
         self.conv1 = nn.Conv2D(in_channels=3, out_channels=32, kernel_size=3)
         self.relu1 = nn.ReLU()
@@ -42,7 +42,7 @@ class Model(nn.Layer):
         self.bn7 = nn.BatchNorm2D(256)
         self.pool7 = nn.MaxPool2D(kernel_size=2, stride=1)
 
-        self.fc = nn.Linear(in_features=2871, out_features=max_len * 2 + 1)
+        self.fc = nn.Linear(in_features=2871, out_features=channel_num * (max_len * 2 + 1))
 
         self.gru = nn.GRU(input_size=256, hidden_size=128)
 

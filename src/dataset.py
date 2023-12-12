@@ -42,7 +42,7 @@ class CaptchaDataset(Dataset):
         self.channel = channel
         self.dataset_dir = dataset_dir
         self.generator = CaptchaGenerator(vocabulary_path=vocabulary_path, max_words=max_len, simple_mode=simple_mode)
-        self.vocabulary = self.generator.vocabulary if simple_mode else self.generator.characters
+        self.vocabulary = self.generator.characters if simple_mode else self.generator.vocabulary
         self._vocabulary_dict = {t: i for i, t in enumerate(self.vocabulary)}
 
         self.channels = ["red", "blue", "black", "yellow", "text", "all"]
