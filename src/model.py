@@ -7,7 +7,7 @@ import paddle.nn as nn
 class Model(nn.Layer):
     def __init__(self, num_classes, max_len=6):
         super(Model, self).__init__()
-        self.conv1 = nn.Conv2D(in_channels=3, out_channels=32, kernel_size=3)
+        self.conv1 = nn.Conv2D(in_channels=4, out_channels=32, kernel_size=3)
         self.relu1 = nn.ReLU()
         self.bn1 = nn.BatchNorm2D(32)
         self.pool1 = nn.MaxPool2D(kernel_size=2, stride=1)
@@ -42,15 +42,16 @@ class Model(nn.Layer):
         self.bn7 = nn.BatchNorm2D(256)
         self.pool7 = nn.MaxPool2D(kernel_size=2, stride=1)
 
-        self.fc = nn.Linear(in_features=2872, out_features=max_len * 2 + 1)
+        self.fc = nn.Linear(in_features=2871, out_features=max_len)
 
         self.gru = nn.GRU(input_size=256, hidden_size=128)
 
         self.output = nn.Linear(in_features=128, out_features=num_classes + 1)
 
     def forward(self, inputs_with_color_idx):
-        x = inputs_with_color_idx[:, :3, :]
-        color_idx = int(inputs_with_color_idx[0, 3, 0, 0])
+        x = inputs_with_color_idx
+        # x = inputs_with_color_idx[:, :3, :]
+        # color_idx = int(inputs_with_color_idx[0, 3, 0, 0])
         x = self.relu1(self.bn1(self.conv1(x)))
         x = self.pool1(x)
         x = self.relu2(self.bn2(self.conv2(x)))
@@ -67,8 +68,8 @@ class Model(nn.Layer):
         x = self.pool7(x)
         x = paddle.reshape(x, shape=(x.shape[0], x.shape[1], -1))
         # 将颜色类型向量和卷积层的输出拼接在一起
-        color_channel = color_idx * paddle.ones(shape=[x.shape[0], x.shape[1], 1], dtype="float32")
-        x = paddle.concat([x, color_channel], axis=-1)
+        # color_channel = color_idx * paddle.ones(shape=[x.shape[0], x.shape[1], 1], dtype="float32")
+        # x = paddle.concat([x, color_channel], axis=-1)
         x = self.fc(x)
         x = paddle.transpose(x, perm=[0, 2, 1])
         y, h = self.gru(x)

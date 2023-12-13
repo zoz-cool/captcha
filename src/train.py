@@ -8,7 +8,6 @@ import shutil
 
 import paddle
 import prettytable
-import visualdl as vdl
 
 import model
 import dataset
@@ -20,14 +19,10 @@ class Trainer:
     def __init__(self, args: argparse.Namespace):
         self.args = args
 
-        self.train_steps = 0
-        self.test_steps = 0
-
         self._init_data()
         self._init_model()
 
     def _init_data(self):
-        self.writer = vdl.LogWriter(logdir=self.args.log_dir)
         # 传入数据集地址时使用已有数据集，否则边训练边生成数据集
         # 获取训练数据
         self.train_dataset = dataset.CaptchaDataset(
@@ -67,14 +62,12 @@ class Trainer:
         m = model.Model(self.num_classes, self.args.max_len)
         img_size = self.train_dataset[0][0].shape
         label_size = self.train_dataset[0][1].shape
-        print("img_size", img_size)
-        print("label-size", label_size)
         inputs_shape = paddle.static.InputSpec([-1, *img_size], dtype='float32', name='input')
         labels_shape = paddle.static.InputSpec([-1, *label_size], dtype='int64', name='label')
         self.model = paddle.Model(m, inputs_shape, labels_shape)
 
         # 打印模型和数据信息
-        self.model.summary()
+        self.model.summary(input_size=(self.args.batch_size, *img_size), dtype="float32")
 
         # 设置优化方法
         # scheduler = paddle.optimizer.lr.ReduceOnPlateau(learning_rate=self.args.lr, factor=0.1, patience=10)
@@ -111,7 +104,7 @@ def parse_args():
 
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--num_epoch", type=int, default=100)
-    parser.add_argument("--lr", type=float, default=0.01)
+    parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--pretrained", type=str, default=None)
     parser.add_argument("--channel", type=str, default="red")
     parser.add_argument("--eval_freq", type=int, default=2)
