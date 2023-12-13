@@ -20,7 +20,6 @@ class WordsPrecision(Metric):
         """更新统计指标"""
         if not isinstance(outputs, paddle.Tensor):
             outputs = paddle.to_tensor(outputs)
-        outputs = outputs[:3, :, :]  # 去掉颜色通道信息
         # 解码获取识别结果
         for output, label in zip(outputs, labels):
             pred_text = decoder.ctc_greedy_decoder(output, self.vocabulary)

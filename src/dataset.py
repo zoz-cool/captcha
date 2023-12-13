@@ -83,8 +83,6 @@ class CaptchaDataset(Dataset):
         # 图片加载&转换
         img = img.convert("RGB")
         img_arr = np.array(img, np.float32).transpose([2, 0, 1]) / 255.0
-        # 这里为了normalize，需要先转换为转换通道[2,0,1]，然后再转换回来，不然会矩阵计算会报错
-        img_arr = self.transform(img_arr).transpose([1, 2, 0])
 
         # 标签处理
         # 如果是random则随机生成一个
@@ -97,7 +95,7 @@ class CaptchaDataset(Dataset):
 
         # 将图像通道和标签颜色索引拼接在一起（这么使用只是为了满足paddle高级接口传入inputs只接受一个参数）
         color_index = self.channels.index(channel)
-        img_arr = np.concatenate([img_arr, color_index * np.ones([1, *img_arr.shape[1:]])])
+        img_arr = np.concatenate([img_arr, 1.0 * color_index * np.ones([1, *img_arr.shape[1:]])]).astype(np.float32)
 
         return img_arr, label_arr
 

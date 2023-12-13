@@ -13,6 +13,7 @@ import visualdl as vdl
 import model
 import dataset
 import metric
+import loss
 
 
 class Trainer:
@@ -66,6 +67,8 @@ class Trainer:
         m = model.Model(self.num_classes, self.args.max_len)
         img_size = self.train_dataset[0][0].shape
         label_size = self.train_dataset[0][1].shape
+        print("img_size", img_size)
+        print("label-size", label_size)
         inputs_shape = paddle.static.InputSpec([-1, *img_size], dtype='float32', name='input')
         labels_shape = paddle.static.InputSpec([-1, *label_size], dtype='int64', name='label')
         self.model = paddle.Model(m, inputs_shape, labels_shape)
@@ -74,10 +77,10 @@ class Trainer:
         self.model.summary()
 
         # 设置优化方法
-        scheduler = paddle.optimizer.lr.ReduceOnPlateau(learning_rate=self.args.lr, factor=0.1, patience=10)
+        # scheduler = paddle.optimizer.lr.ReduceOnPlateau(learning_rate=self.args.lr, factor=0.1, patience=10)
         self.optimizer = paddle.optimizer.Adam(parameters=self.model.parameters(), learning_rate=self.args.lr)
         # 获取损失函数
-        ctc_loss = paddle.nn.CTCLoss(blank=self.num_classes)
+        ctc_loss = loss.CTCLoss(self.num_classes)
 
         self.model.prepare(self.optimizer, ctc_loss, metric.WordsPrecision(self.vocabulary))
 
@@ -93,7 +96,7 @@ class Trainer:
         self.model.fit(train_data=self.train_dataset, eval_data=self.test_dataset, batch_size=self.args.batch_size,
                        shuffle=True, epochs=self.args.num_epoch,
                        eval_freq=self.args.eval_freq, log_freq=10, save_freq=self.args.save_freq,
-                       save_dir=self.args.save_dir, num_workers=os.cpu_count(), verbose=1)
+                       save_dir=self.args.save_dir, num_workers=0, verbose=1)
         self.model.save(self.args.save_dir + "/inference/model", False)  # save for inference
 
 
