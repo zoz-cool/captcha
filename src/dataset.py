@@ -95,7 +95,8 @@ class CaptchaDataset(Dataset):
 
         # 将图像通道和标签颜色索引拼接在一起（这么使用只是为了满足paddle高级接口传入inputs只接受一个参数）
         color_index = self.channels.index(channel)
-        img_arr = np.concatenate([img_arr, 1.0 * color_index * np.ones([1, *img_arr.shape[1:]])]).astype(np.float32)
+        color_arr = color_index * np.ones([1, *img_arr.shape[1:]], dtype=np.float32) / len(self.channels)
+        img_arr = np.concatenate([img_arr, color_arr]).astype(np.float32)
 
         return img_arr, label_arr
 
