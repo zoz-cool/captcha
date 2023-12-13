@@ -13,7 +13,6 @@ import visualdl as vdl
 import model
 import dataset
 import metric
-import loss
 
 
 class Trainer:
@@ -64,12 +63,10 @@ class Trainer:
 
     def _init_model(self):
         # 获取模型
-        channel_num = 5
-        m = model.Model(self.num_classes, self.args.max_len, channel_num)
-        self.img_size = self.train_dataset[0][0].shape
+        m = model.Model(self.num_classes, self.args.max_len)
+        img_size = self.train_dataset[0][0].shape
         label_size = self.train_dataset[0][1].shape
-        label_size[-1] //= channel_num
-        inputs_shape = paddle.static.InputSpec([-1, *self.img_size], dtype='float32', name='input')
+        inputs_shape = paddle.static.InputSpec([-1, *img_size], dtype='float32', name='input')
         labels_shape = paddle.static.InputSpec([-1, *label_size], dtype='int64', name='label')
         self.model = paddle.Model(m, inputs_shape, labels_shape)
 
@@ -77,12 +74,12 @@ class Trainer:
         self.model.summary()
 
         # 设置优化方法
-        self.scheduler = paddle.optimizer.lr.ReduceOnPlateau(learning_rate=self.args.lr, factor=0.1, patience=10)
+        scheduler = paddle.optimizer.lr.ReduceOnPlateau(learning_rate=self.args.lr, factor=0.1, patience=10)
         self.optimizer = paddle.optimizer.Adam(parameters=self.model.parameters(), learning_rate=self.args.lr)
         # 获取损失函数
-        self.multi_channel_ctc_loss = loss.MultiChannelCTCLoss(self.num_classes, self.args.max_len, channel_num)
+        ctc_loss = paddle.nn.CTCLoss(blank=self.num_classes)
 
-        self.model.prepare(self.optimizer, self.multi_channel_ctc_loss, metric.WordsPrecision(self.vocabulary))
+        self.model.prepare(self.optimizer, ctc_loss, metric.WordsPrecision(self.vocabulary))
 
         # 加载预训练模型
         if self.args.pretrained:
