@@ -1,19 +1,23 @@
 #! -*- coding: utf-8 -*-
 
+import random
+from collections import deque
+
 import paddle
 from paddle.metric import Metric
 
 import decoder
 
 
-class WordsPrecision(Metric):
-    """单词正确率"""
+class WordsError(Metric):
+    """单词错误率"""
 
-    def __init__(self, vocabulary, name='words-precision'):
+    def __init__(self, vocabulary, name='words-error'):
         super().__init__()
         self.vocabulary = vocabulary
         self.cer_value = 0
         self.cer_count = 0
+        self.samples = deque(maxlen=10)
         self._name = name
 
     def update(self, outputs, labels):
@@ -25,6 +29,8 @@ class WordsPrecision(Metric):
         for output, label in zip(outputs, labels):
             pred_text = decoder.ctc_greedy_decoder(output, self.vocabulary)
             label_text = decoder.label_to_string(label, self.vocabulary)
+            if random.random() < 0.01:
+                self.samples.append({"pred": pred_text, "label": label_text})
             # 计算字错率
             self.cer_value += decoder.cer(pred_text, label_text) / float(len(label_text))
             self.cer_count += 1
@@ -35,6 +41,10 @@ class WordsPrecision(Metric):
         """
         self.cer_value = 0
         self.cer_count = 0
+        print("--" * 20)
+        while len(self.samples) > 0:
+            print(self.samples.pop())
+        print("--" * 20)
 
     def accumulate(self):
         """
