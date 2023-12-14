@@ -1,10 +1,8 @@
 #! -*- coding: utf-8 -*-
 
-import os
 import sys
 import argparse
 import pathlib
-import shutil
 
 import paddle
 import prettytable
@@ -13,6 +11,11 @@ import model
 import dataset
 import metric
 import loss
+
+
+class PrintLastLROnEpochEnd(paddle.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        print(f"Epoch {epoch + 1}, learning rate is {self.model._optimizer.get_lr()}")
 
 
 class Trainer:
@@ -25,7 +28,7 @@ class Trainer:
     def _init_data(self):
         # 传入数据集地址时使用已有数据集，否则边训练边生成数据集
         # 获取训练数据
-        auto_gen = self.args.auto_num > 0 and self.args.dataset_dir is None
+        auto_gen = self.args.dataset_dir is None
         auto_num = int(self.args.num_epoch * self.args.batch_size) if auto_gen else 0
         self.train_dataset = dataset.CaptchaDataset(
             vocabulary_path=self.args.vocabulary_path,
@@ -72,9 +75,28 @@ class Trainer:
         self.model.summary(input_size=(self.args.batch_size, *img_size), dtype="float32")
 
         # 设置优化方法
-        step_num = int(self.args.num_epoch * len(self.train_dataset) / self.args.batch_size)
-        scheduler = paddle.optimizer.lr.CosineAnnealingDecay(learning_rate=self.args.lr, T_max=step_num, eta_min=1e-8)
-        self.optimizer = paddle.optimizer.Adam(parameters=self.model.parameters(), learning_rate=scheduler)
+        def make_optimizer(parameters=None):
+            boundaries = [5, 20, 50, 100]
+            warmup_steps = 4
+            momentum = 0.9
+            weight_decay = 5e-4
+            values = [self.args.lr * (0.1 ** i) for i in range(len(boundaries) + 1)]
+            learning_rate = paddle.optimizer.lr.PiecewiseDecay(
+                boundaries=boundaries, values=values)
+            learning_rate = paddle.optimizer.lr.LinearWarmup(
+                learning_rate=learning_rate,
+                warmup_steps=warmup_steps,
+                start_lr=self.args.lr / 10.,
+                end_lr=self.args.lr,
+                verbose=True)
+            optimizer = paddle.optimizer.Momentum(
+                learning_rate=learning_rate,
+                weight_decay=weight_decay,
+                momentum=momentum,
+                parameters=parameters)
+            return optimizer
+
+        self.optimizer = make_optimizer(self.model.parameters())
         # 获取损失函数
         ctc_loss = loss.CTCLoss(self.num_classes)
 
@@ -89,6 +111,9 @@ class Trainer:
         """开始训练"""
         self.model.fit(train_data=self.train_dataset, eval_data=self.test_dataset, batch_size=self.args.batch_size,
                        shuffle=True, epochs=self.args.num_epoch,
+                       callbacks=[paddle.callbacks.VisualDL(log_dir=self.args.log_dir),
+                                  paddle.callbacks.LRScheduler(by_step=False, by_epoch=True),
+                                  PrintLastLROnEpochEnd()],
                        eval_freq=self.args.eval_freq, log_freq=10, save_freq=self.args.save_freq,
                        save_dir=self.args.save_dir, num_workers=0, verbose=2)
         self.model.save(self.args.save_dir + "/inference/model", False)  # save for inference
@@ -101,7 +126,7 @@ def parse_args():
     parser.add_argument("--dataset_dir", type=str, default=None)
     parser.add_argument("--vocabulary_path", type=str, default=str(proj_dir / "assets/vocabulary.txt"))
     parser.add_argument("--save_dir", type=str, default=str(proj_dir / "output/checkpoint"))
-    parser.add_argument("--log_dir", type=str, default=str(proj_dir / "output/log"))
+    parser.add_argument("--log_dir", type=str, default=str(proj_dir / "output/log/vdl"))
 
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--num_epoch", type=int, default=100)
