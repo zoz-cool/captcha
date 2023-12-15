@@ -62,11 +62,15 @@ class CaptchaDataset(Dataset):
         self.mean = np.array([0.55456273, 0.5225813, 0.51677391])
         self.transform = transforms.Compose([transforms.Normalize(mean=self.mean, std=self.std)])
 
-    def restore(self, img_arr):
+    def restore_img(self, img_arr):
         """img_arr恢复为图片对象"""
-        img = img_arr.transpose([1, 2, 0])
+        img = img_arr[:3, :, :].transpose([1, 2, 0])
         norm = (img * self.std + self.mean) * 255.0
         return norm.astype(np.uint8)
+
+    def restore_label(self, label):
+        """label恢复为text"""
+        return "".join(self.vocabulary[i] for i in label if i != -1)
 
     def __getitem__(self, idx):
         if self.auto_gen:  # 自动生成
@@ -83,6 +87,7 @@ class CaptchaDataset(Dataset):
         # 图片加载&转换
         img = img.convert("RGB")
         img_arr = np.array(img, np.float32).transpose([2, 0, 1]) / 255.0
+        img_arr = self.transform(img_arr)
 
         # 标签处理
         # 如果是random则随机生成一个
@@ -95,8 +100,8 @@ class CaptchaDataset(Dataset):
 
         # 将图像通道和标签颜色索引拼接在一起（这么使用只是为了满足paddle高级接口传入inputs只接受一个参数）
         color_index = self.channels.index(channel)
-        color_arr = color_index * np.ones([1, *img_arr.shape[1:]], dtype=np.float32) / len(self.channels)
-        img_arr = np.concatenate([img_arr, color_arr]).astype(np.float32)
+        color_channel = color_index * np.ones([1, *img_arr.shape[1:]], dtype=np.float32) / len(self.channels)
+        img_arr = np.concatenate([img_arr, color_channel]).astype(np.float32)
 
         return img_arr, label_arr
 
