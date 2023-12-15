@@ -29,12 +29,11 @@ class Trainer:
         # 传入数据集地址时使用已有数据集，否则边训练边生成数据集
         # 获取训练数据
         auto_gen = self.args.dataset_dir is None
-        auto_num = int(self.args.num_epoch * self.args.batch_size) if auto_gen else 0
         self.train_dataset = dataset.CaptchaDataset(
             vocabulary_path=self.args.vocabulary_path,
             dataset_dir=self.args.dataset_dir,
             auto_gen=auto_gen,
-            auto_num=auto_num,
+            auto_num=self.args.auto_num,
             mode="train",
             channel=self.args.channel,
             max_len=self.args.max_len,
@@ -46,7 +45,7 @@ class Trainer:
             vocabulary_path=self.args.vocabulary_path,
             dataset_dir=self.args.dataset_dir,
             auto_gen=auto_gen,
-            auto_num=min(auto_num // 2, 100_000),  # 自动生成时测试集数量为训练集的一半，同时限制不超过10w
+            auto_num=min(self.args.auto_num // 2, 100_000),  # 自动生成时测试集数量为训练集的一半，同时限制不超过10w
             mode="test",
             channel=self.args.channel,
             max_len=self.args.max_len,
@@ -88,7 +87,7 @@ class Trainer:
                 warmup_steps=warmup_steps,
                 start_lr=self.args.lr / 10.,
                 end_lr=self.args.lr,
-                verbose=True)
+                verbose=False)
             optimizer = paddle.optimizer.Momentum(
                 learning_rate=learning_rate,
                 weight_decay=weight_decay,
@@ -136,6 +135,7 @@ def parse_args():
     parser.add_argument("--eval_freq", type=int, default=2)
     parser.add_argument("--save_freq", type=int, default=1)
     parser.add_argument("--max_len", type=int, default=6)
+    parser.add_argument("--auto_num", type=int, default=10000)
     parser.add_argument("--simple_mode", action="store_true")
 
     return parser.parse_args(sys.argv[1:])
