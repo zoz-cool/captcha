@@ -17,9 +17,6 @@ class PrintLastLROnEpochEnd(paddle.callbacks.Callback):
     def on_epoch_begin(self, epoch, logs=None):
         print(f"Epoch {epoch + 1}, learning rate is {self.model._optimizer.get_lr()}")
 
-    def on_eval_begin(self, logs=None):
-        print(f"Eval, {logs}")
-
 
 class Trainer:
     def __init__(self, args: argparse.Namespace):

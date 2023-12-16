@@ -65,7 +65,7 @@ class Model(nn.Layer):
         x = self.pool7(x)
         x = paddle.reshape(x, shape=(x.shape[0], x.shape[1], -1))
         # 将颜色类型向量和卷积层的输出拼接在一起
-        color_channel = color_idx[:, None, None] * paddle.ones(shape=[x.shape[0], x.shape[1], 1], dtype="float32")
+        color_channel = color_idx[:, None, None].astype("float32") * paddle.ones(shape=[x.shape[0], x.shape[1], 1])
         x = paddle.concat([x, color_channel], axis=-1)
         x = self.fc(x)
         x = paddle.transpose(x, perm=[0, 2, 1])
