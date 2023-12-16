@@ -1,46 +1,50 @@
 #! -*- coding: utf-8 -*-
 
+import re
 import random
 from collections import deque
 
 import paddle
+import Levenshtein as Lev
 from paddle.metric import Metric
 
 import decoder
 
 
-class WordsError(Metric):
-    """单词错误率"""
+class WordsErrorRate(Metric):
+    """单词级别错误率"""
 
-    def __init__(self, vocabulary, name='words-error'):
+    def __init__(self, vocabulary, name='words-error-rate'):
         super().__init__()
         self.vocabulary = vocabulary
-        self.cer_value = 0
-        self.cer_count = 0
+        self.value = 0
+        self.count = 0
         self.samples = deque(maxlen=10)
         self._name = name
+        self.decoder = decoder.Decoder(vocabulary)
 
     def update(self, outputs, labels):
         """更新统计指标"""
         if not isinstance(outputs, paddle.Tensor):
             outputs = paddle.to_tensor(outputs)
-        outputs = paddle.nn.functional.softmax(outputs, axis=-1).transpose([1, 0, 2])
+        outputs = paddle.nn.functional.softmax(outputs, axis=-1)
         # 解码获取识别结果
         for output, label in zip(outputs, labels):
-            pred_text = decoder.ctc_greedy_decoder(output, self.vocabulary)
-            label_text = decoder.label_to_string(label, self.vocabulary)
+            pred_text = self.decoder.ctc_greedy_decoder(output)
+            label_text = self.decoder.label_to_text(label)
             if random.random() < 0.01:
+                # 按照1%概率打印最多10个样本
                 self.samples.append({"pred": pred_text, "label": label_text})
             # 计算字错率
-            self.cer_value += decoder.cer(pred_text, label_text) / float(len(label_text))
-            self.cer_count += 1
+            self.value += self.seq_dis(pred_text, label_text) / float(len(label_text))
+            self.count += 1
 
     def reset(self):
         """
         Resets all the metric state.
         """
-        self.cer_value = 0
-        self.cer_count = 0
+        self.value = 0
+        self.count = 0
         print("--" * 20)
         while len(self.samples) > 0:
             print(self.samples.pop())
@@ -53,10 +57,15 @@ class WordsError(Metric):
         Returns:
             A scaler float: results of the calculated precision.
         """
-        return self.cer_value / max(1, self.cer_count)
+        return self.value / max(1, self.count)
 
     def name(self):
         """
         Returns metric name
         """
         return self._name
+
+    @staticmethod
+    def seq_dis(pred, truth):
+        s1, s2, = re.sub(r"\s+", "", pred), re.sub(r"\s+", "", truth)
+        return Lev.distance(s1, s2)

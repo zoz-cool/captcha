@@ -6,9 +6,11 @@ __pycache__
 */__pycache__
 .idea
 dataset/*
-inference/
+deploy/inference/*
 */**.DS_store
 .DS_Store
 *.tar
 *.tgz
 output/*
+.ipynb_checkpoints
+*.ipynb

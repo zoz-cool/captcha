@@ -43,6 +43,7 @@ class CaptchaDataset(Dataset):
         self.dataset_dir = dataset_dir
         self.generator = CaptchaGenerator(vocabulary_path=vocabulary_path, max_words=max_len, simple_mode=simple_mode)
         self.vocabulary = self.generator.characters if simple_mode else self.generator.vocabulary
+        self.num_classes = len(self.vocabulary)
         self._vocabulary_dict = {t: i for i, t in enumerate(self.vocabulary)}
 
         self.channels = ["red", "blue", "black", "yellow", "text", "random"]
@@ -84,26 +85,24 @@ class CaptchaDataset(Dataset):
         else:
             raise ValueError("dataset_dir must be set when auto_gen is False")
 
+        # 如果是random则随机生成一个
+        channel = random.choice(list(label_map)) if self.channel == "random" else self.channel
+
         # 图片加载&转换
         img = img.convert("RGB")
         img_arr = np.array(img, np.float32).transpose([2, 0, 1]) / 255.0
         img_arr = self.transform(img_arr)
+        # 加入颜色信息
+        color_index = 1.0 * self.channels.index(channel) / len(self.channels)
 
         # 标签处理
-        # 如果是random则随机生成一个
-        channel = random.choice(list(label_map)) if self.channel == "random" else self.channel
         label = label_map[channel]
         label_seq = [self._vocabulary_dict[t] for t in label]
         if len(label_seq) < self.max_len:
             label_seq += [-1] * (self.max_len - len(label_seq))
         label_arr = np.array(label_seq).astype("int32")
 
-        # 将图像通道和标签颜色索引拼接在一起（这么使用只是为了满足paddle高级接口传入inputs只接受一个参数）
-        color_index = self.channels.index(channel)
-        color_channel = color_index * np.ones([1, *img_arr.shape[1:]], dtype=np.float32) / len(self.channels)
-        img_arr = np.concatenate([img_arr, color_channel]).astype(np.float32)
-
-        return img_arr, label_arr
+        return (img_arr, color_index), label_arr
 
     def __len__(self):
         return len(self.meta_info) if not self.auto_gen else self.auto_num

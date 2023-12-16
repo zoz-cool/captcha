@@ -14,8 +14,11 @@ import loss
 
 
 class PrintLastLROnEpochEnd(paddle.callbacks.Callback):
-    def on_epoch_end(self, epoch, logs=None):
+    def on_epoch_begin(self, epoch, logs=None):
         print(f"Epoch {epoch + 1}, learning rate is {self.model._optimizer.get_lr()}")
+
+    def on_eval_begin(self, logs=None):
+        print(f"Eval, {logs}")
 
 
 class Trainer:
@@ -64,14 +67,15 @@ class Trainer:
     def _init_model(self):
         # 获取模型
         m = model.Model(self.num_classes, self.args.max_len)
-        img_size = self.train_dataset[0][0].shape
+        img_size = self.train_dataset[0][0][0].shape
         label_size = self.train_dataset[0][1].shape
-        inputs_shape = paddle.static.InputSpec([-1, *img_size], dtype='float32', name='input')
-        labels_shape = paddle.static.InputSpec([-1, *label_size], dtype='int64', name='label')
-        self.model = paddle.Model(m, inputs_shape, labels_shape)
+        inputs_shape = paddle.static.InputSpec([None, *img_size], dtype='float32', name='input')
+        color_shape = paddle.static.InputSpec([1, ], dtype='float32', name='color')
+        labels_shape = paddle.static.InputSpec([None, *label_size], dtype='int64', name='label')
+        self.model = paddle.Model(m, (inputs_shape, color_shape), labels_shape)
 
         # 打印模型和数据信息
-        self.model.summary(input_size=(self.args.batch_size, *img_size), dtype="float32")
+        self.model.summary()
 
         # 设置优化方法
         def make_optimizer(parameters=None):
@@ -99,7 +103,7 @@ class Trainer:
         # 获取损失函数
         ctc_loss = loss.CTCLoss(self.num_classes)
 
-        self.model.prepare(self.optimizer, ctc_loss, metric.WordsError(self.vocabulary))
+        self.model.prepare(self.optimizer, ctc_loss, metrics=[metric.WordsErrorRate(self.vocabulary)])
 
         # 加载预训练模型
         if self.args.pretrained:

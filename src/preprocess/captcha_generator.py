@@ -254,15 +254,15 @@ def main():
     args = parse_args()
 
     if os.path.isdir(args.output):
+        print("remove old dataset: ", args.output)
         shutil.rmtree(args.output)
 
     batch_size = 10000
-    gen = CaptchaGenerator()
-    gen.max_words = args.max_num
+    gen = CaptchaGenerator(max_words=args.max_num, simple_mode=args.simple_mode)
 
     tbar = tqdm(range(args.num // batch_size + int(args.num % batch_size != 0)))
     for i in tbar:
-        batch_data = gen.gen_batch(batch_size=batch_size, min_num=args.min_num, max_num=args.max_num)
+        batch_data = gen.gen_batch(batch_size=min(args.num, batch_size), min_num=args.min_num, max_num=args.max_num)
         tbar.set_description(f"batch={i + 1}")
 
         save_batch(
@@ -282,6 +282,7 @@ def parse_args():
     parser.add_argument("--max_num", type=int, default=6, help="验证码最大长度")
     parser.add_argument("--output", type=pathlib.Path, default=proj_dir / "dataset", help="数据保存路径")
     parser.add_argument("--test_ratio", type=float, default=0.4, help="测试集所占比例")
+    parser.add_argument("--simple_mode", action="store_true", help="是否简单模式，简单模式下只包含数字和字母")
 
     return parser.parse_args(sys.argv[1:])
 

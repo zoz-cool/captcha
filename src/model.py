@@ -44,15 +44,12 @@ class Model(nn.Layer):
 
         self.fc = nn.Linear(in_features=2872, out_features=max_len)
 
-        self.gru = nn.GRU(input_size=256, hidden_size=128)
+        self.gru = nn.GRU(input_size=256, hidden_size=128, num_layers=2, direction="bidirectional")
 
-        self.output = nn.Linear(in_features=128, out_features=num_classes + 1)
+        self.output = nn.Linear(in_features=256, out_features=num_classes + 1)
 
-    def forward(self, inputs_with_color_idx):
-        # 分离颜色类型和img
-        x = inputs_with_color_idx[:, :3, :, :]
-        color_idx = inputs_with_color_idx[:, 3, 0, 0]
-        x = self.relu1(self.bn1(self.conv1(x)))
+    def forward(self, inputs, color_idx):
+        x = self.relu1(self.bn1(self.conv1(inputs)))
         x = self.pool1(x)
         x = self.relu2(self.bn2(self.conv2(x)))
         x = self.pool2(x)
@@ -74,5 +71,4 @@ class Model(nn.Layer):
         x = paddle.transpose(x, perm=[0, 2, 1])
         y, h = self.gru(x)
         x = self.output(y)
-        x = x.transpose(perm=[1, 0, 2])
         return x
