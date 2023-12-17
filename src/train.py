@@ -76,10 +76,8 @@ class Trainer:
 
         # 设置优化方法
         def make_optimizer(parameters=None):
-            boundaries = [5, 20, 50, 100]
+            boundaries = [5, 50, 100]
             warmup_steps = 4
-            momentum = 0.9
-            weight_decay = 5e-4
             values = [self.args.lr * (0.1 ** i) for i in range(len(boundaries) + 1)]
             learning_rate = paddle.optimizer.lr.PiecewiseDecay(
                 boundaries=boundaries, values=values)
@@ -89,10 +87,8 @@ class Trainer:
                 start_lr=self.args.lr / 10.,
                 end_lr=self.args.lr,
                 verbose=False)
-            optimizer = paddle.optimizer.Momentum(
+            optimizer = paddle.optimizer.Adam(
                 learning_rate=learning_rate,
-                weight_decay=weight_decay,
-                momentum=momentum,
                 parameters=parameters)
             return optimizer
 
@@ -109,12 +105,21 @@ class Trainer:
 
     def train(self):
         """开始训练"""
+        vdl_log_dir = str(pathlib.Path(self.args.log_dir, "vdl"))
+        callbacks = [paddle.callbacks.VisualDL(log_dir=vdl_log_dir),
+                     paddle.callbacks.LRScheduler(by_step=False, by_epoch=True),
+                     PrintLastLROnEpochEnd()]
+        if self.args.wandb_name:
+            print(f"Use wandb with name {self.args.wandb_name}")
+            job_type = f"{self.args.channel}-{'simple' if self.args.simple_mode else 'complex'}"
+            wandb_callback = paddle.callbacks.WandbCallback(project="captcha",
+                                                            dir=self.args.log_dir,
+                                                            name=self.args.wandb_name,
+                                                            job_type=job_type)
+            callbacks.append(wandb_callback)
         self.model.fit(train_data=self.train_dataset, eval_data=self.test_dataset, batch_size=self.args.batch_size,
                        shuffle=True, epochs=self.args.num_epoch,
-                       callbacks=[paddle.callbacks.VisualDL(log_dir=self.args.log_dir),
-                                  paddle.callbacks.LRScheduler(by_step=False, by_epoch=True),
-                                  PrintLastLROnEpochEnd()],
-                       eval_freq=self.args.eval_freq, log_freq=10, save_freq=self.args.save_freq,
+                       callbacks=callbacks, eval_freq=self.args.eval_freq, log_freq=10, save_freq=self.args.save_freq,
                        save_dir=self.args.save_dir, num_workers=0, verbose=2)
         self.model.save(self.args.save_dir + "/inference/model", False)  # save for inference
 
@@ -126,7 +131,7 @@ def parse_args():
     parser.add_argument("--dataset_dir", type=str, default=None)
     parser.add_argument("--vocabulary_path", type=str, default=str(proj_dir / "assets/vocabulary.txt"))
     parser.add_argument("--save_dir", type=str, default=str(proj_dir / "output/checkpoint"))
-    parser.add_argument("--log_dir", type=str, default=str(proj_dir / "output/log/vdl"))
+    parser.add_argument("--log_dir", type=str, default=str(proj_dir / "output/log"))
 
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--num_epoch", type=int, default=100)
@@ -138,7 +143,7 @@ def parse_args():
     parser.add_argument("--max_len", type=int, default=6)
     parser.add_argument("--auto_num", type=int, default=10000)
     parser.add_argument("--simple_mode", action="store_true")
-
+    parser.add_argument("--wandb_name", type=str, default=None)
     return parser.parse_args(sys.argv[1:])
 
 

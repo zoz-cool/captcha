@@ -5,3 +5,4 @@ paddlepaddle
 Levenshtein
 visualdl
 prettytable
+wandb
