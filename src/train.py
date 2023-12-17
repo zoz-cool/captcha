@@ -63,7 +63,8 @@ class Trainer:
 
     def _init_model(self):
         # 获取模型
-        m = model.Model(self.num_classes, self.args.max_len)
+        print("Use model {}".format(self.args.model))
+        m = model.Model(self.num_classes, self.args.max_len, feature_net=self.args.model)
         img_size = self.train_dataset[0][0][0].shape
         label_size = self.train_dataset[0][1].shape
         inputs_shape = paddle.static.InputSpec([None, *img_size], dtype='float32', name='input')
@@ -111,11 +112,11 @@ class Trainer:
                      PrintLastLROnEpochEnd()]
         if self.args.wandb_name:
             print(f"Use wandb with name {self.args.wandb_name}")
-            job_type = f"{self.args.channel}-{'simple' if self.args.simple_mode else 'complex'}"
             wandb_callback = paddle.callbacks.WandbCallback(project="captcha",
                                                             dir=self.args.log_dir,
                                                             name=self.args.wandb_name,
-                                                            job_type=job_type)
+                                                            job_type="simple" if self.args.simple_mode else "complex",
+                                                            group=self.args.channel)
             callbacks.append(wandb_callback)
         self.model.fit(train_data=self.train_dataset, eval_data=self.test_dataset, batch_size=self.args.batch_size,
                        shuffle=True, epochs=self.args.num_epoch,
@@ -128,22 +129,26 @@ def parse_args():
     proj_dir = pathlib.Path(__file__).absolute().parent.parent
 
     parser = argparse.ArgumentParser()
+    # 初始化参数
     parser.add_argument("--dataset_dir", type=str, default=None)
     parser.add_argument("--vocabulary_path", type=str, default=str(proj_dir / "assets/vocabulary.txt"))
     parser.add_argument("--save_dir", type=str, default=str(proj_dir / "output/checkpoint"))
     parser.add_argument("--log_dir", type=str, default=str(proj_dir / "output/log"))
-
+    parser.add_argument("--wandb_name", type=str, default=None,
+                        help="传入此参数时，日志会使用wandb记录，需要先安装wandb并在控制台登录")
+    parser.add_argument("--auto_num", type=int, default=10000)
+    parser.add_argument("--pretrained", type=str, default=None)
+    parser.add_argument("--eval_freq", type=int, default=2)
+    parser.add_argument("--save_freq", type=int, default=1)
+    parser.add_argument("--max_len", type=int, default=6, help="生成的验证码最大长度")
+    # 模型参数
+    parser.add_argument("--channel", type=str, default="text")
+    parser.add_argument("--simple_mode", action="store_true")
+    parser.add_argument("--model", type=str, default="custom")
+    # 训练参数
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--num_epoch", type=int, default=100)
     parser.add_argument("--lr", type=float, default=0.001)
-    parser.add_argument("--pretrained", type=str, default=None)
-    parser.add_argument("--channel", type=str, default="text")
-    parser.add_argument("--eval_freq", type=int, default=2)
-    parser.add_argument("--save_freq", type=int, default=1)
-    parser.add_argument("--max_len", type=int, default=6)
-    parser.add_argument("--auto_num", type=int, default=10000)
-    parser.add_argument("--simple_mode", action="store_true")
-    parser.add_argument("--wandb_name", type=str, default=None)
     return parser.parse_args(sys.argv[1:])
 
 
