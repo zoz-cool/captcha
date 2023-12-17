@@ -3,9 +3,14 @@
 import os
 import time
 
-import cv2
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
+
+try:
+    import cv2
+except ImportError:
+    os.system('pip3 install opencv-python')
+    import cv2
 
 
 def process_image(filename):
@@ -43,8 +48,7 @@ if __name__ == '__main__':
     start = time.time()
     proj_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     dataset_dir = os.path.join(proj_dir, 'dataset', 'captcha_100w', 'images')
-    mean, std = compute_mean_std_multithread(dataset_dir, os.cpu_count()*2)
+    mean, std = compute_mean_std_multithread(dataset_dir, os.cpu_count() * 2)
     end = time.time()
     print("time:", end - start)
     print(mean, std)
-

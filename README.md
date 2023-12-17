@@ -11,7 +11,7 @@
 ```bash
 cd captcha/src/preprocess
 
-pip3 install -r requirements-data.txt
+pip3 install -r requirements.txt
 python3 captcha_generator.py --num 100_000 --output ../../dataset
 ```
 
