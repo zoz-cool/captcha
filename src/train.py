@@ -111,10 +111,11 @@ class Trainer:
                      paddle.callbacks.LRScheduler(by_step=False, by_epoch=True),
                      PrintLastLROnEpochEnd()]
         if self.args.wandb_name:
-            print(f"Use wandb with name {self.args.wandb_name}")
+            name = f"{self.args.model}-bs{self.args.batch_size}-{self.args.wandb_name}"
+            print(f"Use wandb with name {name}")
             wandb_callback = paddle.callbacks.WandbCallback(project="captcha",
                                                             dir=self.args.log_dir,
-                                                            name=self.args.wandb_name,
+                                                            name=name,
                                                             job_type="simple" if self.args.simple_mode else "complex",
                                                             group=self.args.channel)
             callbacks.append(wandb_callback)
