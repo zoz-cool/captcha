@@ -39,6 +39,8 @@ class Trainer:
             max_len=self.args.max_len,
             simple_mode=self.args.simple_mode
         )
+        self.train_dataloader = paddle.io.DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True,
+                                                     num_workers=self.args.num_workers, use_shared_memory=False)
 
         # 获取测试数据
         self.test_dataset = dataset.CaptchaDataset(
@@ -51,6 +53,8 @@ class Trainer:
             max_len=self.args.max_len,
             simple_mode=self.args.simple_mode
         )
+        self.test_dataloader = paddle.io.DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=False,
+                                                    num_workers=self.args.num_workers, use_shared_memory=False)
 
         self.vocabulary = self.train_dataset.vocabulary
         self.num_classes = len(self.train_dataset.vocabulary)
@@ -85,7 +89,7 @@ class Trainer:
             learning_rate = paddle.optimizer.lr.LinearWarmup(
                 learning_rate=learning_rate,
                 warmup_steps=warmup_steps,
-                start_lr=self.args.lr / 10.,
+                start_lr=self.args.lr / 5.,
                 end_lr=self.args.lr,
                 verbose=False)
             optimizer = paddle.optimizer.Adam(
@@ -110,20 +114,21 @@ class Trainer:
         callbacks = [paddle.callbacks.VisualDL(log_dir=vdl_log_dir),
                      paddle.callbacks.LRScheduler(by_step=False, by_epoch=True),
                      PrintLastLROnEpochEnd()]
-        if self.args.wandb_name:
-            name = f"{self.args.model}-bs{self.args.batch_size}-{self.args.wandb_name}"
-            print(f"Use wandb with name {name}")
+        if self.args.wandb_mode in ["online", "offline"]:
+            name = f"{self.args.model}-bs{self.args.batch_size}"
+            if self.args.wandb_name:
+                name = name + "-" + self.args.wandb_name
+            print(f"Use wandb to record log, name: {name}, mode: {self.args.wandb_mode}")
             wandb_callback = paddle.callbacks.WandbCallback(project="captcha",
                                                             dir=self.args.log_dir,
                                                             name=name,
-                                                            mode="online",
+                                                            mode=self.args.wandb_mode,
                                                             job_type="simple" if self.args.simple_mode else "complex",
                                                             group=self.args.channel)
             callbacks.append(wandb_callback)
-        self.model.fit(train_data=self.train_dataset, eval_data=self.test_dataset, batch_size=self.args.batch_size,
-                       shuffle=True, epochs=self.args.num_epoch,
+        self.model.fit(train_data=self.train_dataloader, eval_data=self.test_dataloader, epochs=self.args.num_epoch,
                        callbacks=callbacks, eval_freq=self.args.eval_freq, log_freq=10, save_freq=self.args.save_freq,
-                       save_dir=self.args.save_dir, num_workers=0, verbose=2)
+                       save_dir=self.args.save_dir, verbose=1)
         self.model.save(self.args.save_dir + "/inference/model", False)  # save for inference
 
 
@@ -136,8 +141,8 @@ def parse_args():
     parser.add_argument("--vocabulary_path", type=str, default=str(proj_dir / "assets/vocabulary.txt"))
     parser.add_argument("--save_dir", type=str, default=str(proj_dir / "output/checkpoint"))
     parser.add_argument("--log_dir", type=str, default=str(proj_dir / "output/log"))
-    parser.add_argument("--wandb_name", type=str, default=None,
-                        help="传入此参数时，日志会使用wandb记录，需要先安装wandb并在控制台登录")
+    parser.add_argument("--wandb_name", type=str, default="")
+    parser.add_argument("--wandb_mode", type=str, default="")
     parser.add_argument("--auto_num", type=int, default=10000)
     parser.add_argument("--pretrained", type=str, default=None)
     parser.add_argument("--eval_freq", type=int, default=2)
@@ -151,6 +156,7 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--num_epoch", type=int, default=100)
     parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--num_workers", type=int, default=0)
     return parser.parse_args(sys.argv[1:])
 
 
