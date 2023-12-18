@@ -73,7 +73,7 @@ class Trainer:
         self.model = paddle.Model(m, (inputs_shape, color_shape), labels_shape)
 
         # 打印模型和数据信息
-        self.model.summary()
+        self.model.summary(input_size=([self.args.batch_size, *img_size], [1]))
 
         # 设置优化方法
         def make_optimizer(parameters=None):
@@ -116,6 +116,7 @@ class Trainer:
             wandb_callback = paddle.callbacks.WandbCallback(project="captcha",
                                                             dir=self.args.log_dir,
                                                             name=name,
+                                                            mode="online",
                                                             job_type="simple" if self.args.simple_mode else "complex",
                                                             group=self.args.channel)
             callbacks.append(wandb_callback)

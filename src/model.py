@@ -48,7 +48,7 @@ class CustomFeatureNet(nn.Layer):
         self.bn7 = nn.BatchNorm2D(256)
         self.pool7 = nn.MaxPool2D(kernel_size=2, stride=1)
 
-    def forward(self, inputs, color_idx):
+    def forward(self, inputs):
         x = self.relu1(self.bn1(self.conv1(inputs)))
         x = self.pool1(x)
         x = self.relu2(self.bn2(self.conv2(x)))
@@ -84,7 +84,6 @@ class Model(nn.Layer):
                         "shufflenet_v2_x2_0": [9, 2048],
                         "vgg11": [4, 512], "vgg13": [4, 512], "vgg16": [4, 512], "vgg19": [4, 512]}
         assert feature_net in feature_size, f"feature_net must be one of {list(feature_size.keys())}"
-        models.resnext50_32x4d()
         if feature_net == "custom":
             self.feature_net = CustomFeatureNet()
         else:
