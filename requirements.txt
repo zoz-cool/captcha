@@ -5,3 +5,4 @@ Levenshtein
 visualdl
 prettytable
 wandb
+loguru

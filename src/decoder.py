@@ -7,7 +7,7 @@ from itertools import groupby
 class Decoder:
     """解码器"""
 
-    def __init__(self, vocabulary: dict):
+    def __init__(self, vocabulary: list):
         self.vocabulary = vocabulary
         self.blank_index = len(self.vocabulary)
 
