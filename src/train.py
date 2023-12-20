@@ -13,7 +13,7 @@ import metric
 import loss
 
 
-class PrintLastLROnEpochEnd(paddle.callbacks.Callback):
+class PrintLastLROnEpochStart(paddle.callbacks.Callback):
     def on_epoch_begin(self, epoch, logs=None):
         print(f"Epoch {epoch + 1}, learning rate is {self.model._optimizer.get_lr()}")
 
@@ -101,7 +101,8 @@ class Trainer:
         # 获取损失函数
         ctc_loss = loss.CTCLoss(self.num_classes)
 
-        self.model.prepare(self.optimizer, ctc_loss, metrics=[metric.WordsErrorRate(self.vocabulary)])
+        self.model.prepare(self.optimizer, ctc_loss, metrics=[metric.WordsErrorRate(self.vocabulary),
+                                                              metric.SampleAccuracy(self.vocabulary)])
 
         # 加载预训练模型
         if self.args.pretrained:
@@ -113,7 +114,7 @@ class Trainer:
         vdl_log_dir = str(pathlib.Path(self.args.log_dir, "vdl"))
         callbacks = [paddle.callbacks.VisualDL(log_dir=vdl_log_dir),
                      paddle.callbacks.LRScheduler(by_step=False, by_epoch=True),
-                     PrintLastLROnEpochEnd()]
+                     PrintLastLROnEpochStart()]
         if self.args.wandb_mode in ["online", "offline"]:
             name = f"{self.args.model}-bs{self.args.batch_size}"
             if self.args.wandb_name:
