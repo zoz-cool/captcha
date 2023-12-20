@@ -27,41 +27,58 @@ class Trainer:
 
     def _init_data(self):
         # 传入数据集地址时使用已有数据集，否则边训练边生成数据集
-        # 获取训练数据
-        auto_gen = self.args.dataset_dir is None
-        self.train_dataset = dataset.CaptchaDataset(
-            vocabulary_path=self.args.vocabulary_path,
-            dataset_dir=self.args.dataset_dir,
-            auto_gen=auto_gen,
-            auto_num=self.args.auto_num,
-            mode="train",
-            channel=self.args.channel,
-            max_len=self.args.max_len,
-            simple_mode=self.args.simple_mode
-        )
-        self.train_dataloader = paddle.io.DataLoader(self.train_dataset, batch_size=self.args.batch_size, shuffle=True,
-                                                     num_workers=self.args.num_workers, use_shared_memory=False)
+        if self.args.evaluate:  # evaluate 模式
+            assert self.args.dataset_dir is not None, "dataset_dir must be set when evaluate"
+            print(f"Start evaluate for dataset {self.args.dataset_dir}...")
+            self.test_dataset = dataset.CaptchaDataset(
+                vocabulary_path=self.args.vocabulary_path,
+                dataset_dir=self.args.dataset_dir,
+                mode="test",
+                channel=self.args.channel,
+                max_len=self.args.max_len,
+                simple_mode=self.args.simple_mode
+            )
+            self.test_dataloader = paddle.io.DataLoader(self.test_dataset, batch_size=self.args.batch_size,
+                                                        shuffle=True,
+                                                        num_workers=self.args.num_workers, use_shared_memory=False)
+        else:  # 获取训练数据
+            auto_gen = self.args.dataset_dir is None
+            self.train_dataset = dataset.CaptchaDataset(
+                vocabulary_path=self.args.vocabulary_path,
+                dataset_dir=self.args.dataset_dir,
+                auto_gen=auto_gen,
+                auto_num=self.args.auto_num,
+                mode="train",
+                channel=self.args.channel,
+                max_len=self.args.max_len,
+                simple_mode=self.args.simple_mode
+            )
+            self.train_dataloader = paddle.io.DataLoader(self.train_dataset, batch_size=self.args.batch_size,
+                                                         shuffle=True,
+                                                         num_workers=self.args.num_workers, use_shared_memory=False)
 
-        # 获取测试数据
-        self.test_dataset = dataset.CaptchaDataset(
-            vocabulary_path=self.args.vocabulary_path,
-            dataset_dir=self.args.dataset_dir,
-            auto_gen=auto_gen,
-            auto_num=min(self.args.auto_num // 2, 100_000),  # 自动生成时测试集数量为训练集的一半，同时限制不超过10w
-            mode="test",
-            channel=self.args.channel,
-            max_len=self.args.max_len,
-            simple_mode=self.args.simple_mode
-        )
-        self.test_dataloader = paddle.io.DataLoader(self.test_dataset, batch_size=self.args.batch_size, shuffle=False,
-                                                    num_workers=self.args.num_workers, use_shared_memory=False)
+            # 获取测试数据
+            self.test_dataset = dataset.CaptchaDataset(
+                vocabulary_path=self.args.vocabulary_path,
+                dataset_dir=self.args.dataset_dir,
+                auto_gen=auto_gen,
+                auto_num=min(self.args.auto_num // 2, 100_000),  # 自动生成时测试集数量为训练集的一半，同时限制不超过10w
+                mode="test",
+                channel=self.args.channel,
+                max_len=self.args.max_len,
+                simple_mode=self.args.simple_mode
+            )
+            self.test_dataloader = paddle.io.DataLoader(self.test_dataset, batch_size=self.args.batch_size,
+                                                        shuffle=False,
+                                                        num_workers=self.args.num_workers, use_shared_memory=False)
 
-        self.vocabulary = self.train_dataset.vocabulary
-        self.num_classes = len(self.train_dataset.vocabulary)
+        self.vocabulary = self.test_dataset.vocabulary
+        self.num_classes = len(self.test_dataset.vocabulary)
 
         t = prettytable.PrettyTable(["field", "number"])
         t.add_row(["num_classes", self.num_classes])
-        t.add_row(["train_dataset", len(self.train_dataset)])
+        if hasattr(self, "train_dataset"):
+            t.add_row(["train_dataset", len(self.train_dataset)])
         t.add_row(["test_dataset", len(self.test_dataset)])
         print(t)
 
@@ -69,8 +86,8 @@ class Trainer:
         # 获取模型
         print("Use model {}".format(self.args.model))
         m = model.Model(self.num_classes, self.args.max_len, feature_net=self.args.model)
-        img_size = self.train_dataset[0][0][0].shape
-        label_size = self.train_dataset[0][1].shape
+        img_size = self.test_dataset[0][0][0].shape
+        label_size = self.test_dataset[0][1].shape
         inputs_shape = paddle.static.InputSpec([None, *img_size], dtype='float32', name='input')
         color_shape = paddle.static.InputSpec([1, ], dtype='float32', name='color')
         labels_shape = paddle.static.InputSpec([None, *label_size], dtype='int64', name='label')
@@ -137,6 +154,10 @@ class Trainer:
         print(f"Export inference model to {inference_dir}...")
         self.model.save(inference_dir, False)
 
+    def evaluate(self):
+        res = self.model.evaluate(self.test_dataloader, batch_size=self.args.batch_size, verbose=1)
+        print(res)
+
 
 def parse_args():
     proj_dir = pathlib.Path(__file__).absolute().parent.parent
@@ -165,12 +186,17 @@ def parse_args():
     parser.add_argument("--num_workers", type=int, default=0)
     # 导出模型
     parser.add_argument("--export", action="store_true")
+    # 评估模型
+    parser.add_argument("--evaluate", action="store_true")
     return parser.parse_args(sys.argv[1:])
 
 
 if __name__ == "__main__":
     arg = parse_args()
+    trainer = Trainer(arg)
     if arg.export:
-        Trainer(arg).export()
+        trainer.export()
+    elif arg.evaluate:
+        trainer.evaluate()
     else:
-        Trainer(arg).train()
+        trainer.train()

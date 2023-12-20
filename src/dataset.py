@@ -73,7 +73,29 @@ class CaptchaDataset(Dataset):
         """label恢复为text"""
         return "".join(self.vocabulary[i] for i in label if i != -1)
 
-    def __getitem__(self, idx):
+    def process_img(self, img: Image):
+        # 图片加载&转换
+        img = img.convert("RGB")
+        img_arr = np.array(img, np.float32).transpose([2, 0, 1]) / 255.0
+        img_arr = self.transform(img_arr)
+        return img_arr
+
+    def process_channel(self, channel: str):
+        # 颜色信息处理
+        assert channel in self.channels, f"channel only can be one of {self.channels}"
+        color_index = 1.0 * self.channels.index(channel) / len(self.channels)
+        return color_index
+
+    def process_label(self, label: str):
+        # 标签处理
+        label_seq = [self._vocabulary_dict[t] for t in label]
+        if len(label_seq) < self.max_len:
+            label_seq += [-1] * (self.max_len - len(label_seq))
+        label_arr = np.array(label_seq).astype("int32")
+        return label_arr
+
+    def _data_from(self, idx):
+        """自动生成或者从本地数据读取"""
         if self.auto_gen:  # 自动生成
             img, label_map = self.generator.gen_one(min_num=4, max_num=self.max_len)
             if self.channel not in ["text", "random"]:
@@ -87,20 +109,18 @@ class CaptchaDataset(Dataset):
 
         # 如果是random则随机生成一个
         channel = random.choice(list(label_map)) if self.channel == "random" else self.channel
+        return img, channel, label_map
+
+    def __getitem__(self, idx):
+        # 读取数据，来自本地或者自动生成
+        img, channel, label_map = self._data_from(idx)
 
         # 图片加载&转换
-        img = img.convert("RGB")
-        img_arr = np.array(img, np.float32).transpose([2, 0, 1]) / 255.0
-        img_arr = self.transform(img_arr)
-        # 加入颜色信息
-        color_index = 1.0 * self.channels.index(channel) / len(self.channels)
-
+        img_arr = self.process_img(img)
+        # 颜色信息处理
+        color_index = self.process_channel(channel)
         # 标签处理
-        label = label_map[channel]
-        label_seq = [self._vocabulary_dict[t] for t in label]
-        if len(label_seq) < self.max_len:
-            label_seq += [-1] * (self.max_len - len(label_seq))
-        label_arr = np.array(label_seq).astype("int32")
+        label_arr = self.process_label(label_map[channel])
 
         return (img_arr, color_index), label_arr
 
