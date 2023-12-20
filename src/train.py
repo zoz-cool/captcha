@@ -132,6 +132,11 @@ class Trainer:
                        save_dir=self.args.save_dir, verbose=1)
         self.model.save(self.args.save_dir + "/inference/model", False)  # save for inference
 
+    def export(self):
+        inference_dir = self.args.save_dir + "/inference/model"
+        print(f"Export inference model to {inference_dir}...")
+        self.model.save(inference_dir, False)
+
 
 def parse_args():
     proj_dir = pathlib.Path(__file__).absolute().parent.parent
@@ -158,9 +163,14 @@ def parse_args():
     parser.add_argument("--num_epoch", type=int, default=100)
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--num_workers", type=int, default=0)
+    # 导出模型
+    parser.add_argument("--export", action="store_true")
     return parser.parse_args(sys.argv[1:])
 
 
 if __name__ == "__main__":
     arg = parse_args()
-    Trainer(arg).train()
+    if arg.export:
+        Trainer(arg).export()
+    else:
+        Trainer(arg).train()
