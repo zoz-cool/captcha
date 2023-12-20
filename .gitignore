@@ -14,3 +14,4 @@ deploy/inference/*
 output/*
 .ipynb_checkpoints
 *.ipynb
+*/**/*.log

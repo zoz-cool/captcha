@@ -1,4 +1,5 @@
 numpy
 ppqi
 pillow
+loguru
 fastapi[all]
