@@ -1,8 +1,8 @@
-numpy
-pillow
-paddlepaddle-gpu
-Levenshtein
-visualdl
-prettytable
+tqdm
+scipy
 wandb
 loguru
+visualdl
+prettytable
+Levenshtein
+paddlepaddle-gpu

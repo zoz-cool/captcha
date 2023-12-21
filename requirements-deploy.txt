@@ -1,6 +1,6 @@
-numpy
 ppqi
-pillow
 loguru
-fastapi[all]
+uvicorn
+fastapi
+python-multipart
 paddlepaddle

@@ -1,27 +1,27 @@
 #! -*- coding: utf-8 -*-
 
+import pathlib
 from typing import List
 
 import paddle
-import numpy as np
 from PIL import Image
 from loguru import logger
 from ppqi import InferenceModel
 
+from util import DataUtil
 from decoder import Decoder
-from dataset import CaptchaDataset
-
-data_util = CaptchaDataset(auto_gen=True)
 
 # 加载模型
-logger.info("Load model from inference/model...")
+inference_model_path = pathlib.Path(__file__).absolute().parent.parent / "inference/model"
+logger.info(f"Load model from {inference_model_path}...")
 model = InferenceModel(
-    modelpath='inference/model',
+    modelpath=str(inference_model_path),
     use_gpu=False,
     use_mkldnn=True
 )
 model.eval()
 # 解码器
+data_util = DataUtil()
 decoder = Decoder(data_util.vocabulary)
 
 

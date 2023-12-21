@@ -15,3 +15,4 @@ output/*
 .ipynb_checkpoints
 *.ipynb
 */**/*.log
+inference/

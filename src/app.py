@@ -7,11 +7,12 @@
 @Date: 2023/12/20
 """
 import io
+import re
 from typing import List
 
 from PIL import Image
 from loguru import logger
-from fastapi import UploadFile, File, FastAPI, Form, Request
+from fastapi import UploadFile, File, FastAPI, Request
 
 from predict import data_util, predict
 
@@ -20,9 +21,9 @@ logger.add("logs/visit.log", rotation="10 MB", encoding="utf-8", enqueue=True, c
 
 
 @app.post("/captcha/predict")
-async def upload_images(request: Request, channels: str = Form(...), files: List[UploadFile] = File(...)):
-    channels = channels.split(",")
+async def upload_images(request: Request, files: List[UploadFile] = File(...)):
     filenames = [file.filename for file in files]
+    channels = [re.split(r"[.\-_]", filename)[0] for filename in filenames]
     host = request.client.host
     logger.info(f"[{host}] visit /captcha/predict, channels: {channels}, file num: {len(files)}, files: {filenames}")
     if len(channels) != len(files):
