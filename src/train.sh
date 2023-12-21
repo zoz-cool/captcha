@@ -28,9 +28,11 @@ NUM_EPOCH=100
 LR=0.001
 # 多进程读取数据
 NUM_WORKERS=20
-# 是否使用wandb来可视化(指定online或offline)
-WANDB_MODE=
+# 是否使用wandb来可视化(指定online或offline，不用wandb可视化则不填写)
+WANDB_MODE=offline
 WANDB_NAME=
+# 用几卡训练
+GPUS=0,1,2,3
 
 if [[ !-z $DATASET_DIR ]]; then
     DATASET_DIR="--dataset_dir $DATASET_DIR"
@@ -52,8 +54,12 @@ if [[ !-z $WANDB_NAME ]]; then
     WANDB_NAME="--wandb_name $WANDB_NAME"
 fi
 
+if [[ ${#GPUS} -gt 1 ]]; then
+    DISTRIBUTED_LAUNCH="-m paddle.distributed.launch"
+fi
 # 运行train.py文件
-python train.py --auto_num $AUTO_NUM \
+CUDA_VISIBLE_DEVICES=$GPUS python $DISTRIBUTED_LAUNCH train.py \
+                --auto_num $AUTO_NUM \
                 --eval_freq $EVAL_FREQ \
                 --save_freq $SAVE_FREQ \
                 --max_len $MAX_LEN \

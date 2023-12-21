@@ -145,7 +145,7 @@ class Trainer:
                                                             group=self.args.channel)
             callbacks.append(wandb_callback)
         self.model.fit(train_data=self.train_dataloader, eval_data=self.test_dataloader, epochs=self.args.num_epoch,
-                       callbacks=callbacks, eval_freq=self.args.eval_freq, log_freq=10, save_freq=self.args.save_freq,
+                       callbacks=callbacks, eval_freq=self.args.eval_freq, log_freq=1, save_freq=self.args.save_freq,
                        save_dir=self.args.save_dir, verbose=1)
         self.model.save(self.args.save_dir + "/inference/model", False)  # save for inference
 
