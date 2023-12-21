@@ -1,16 +1,16 @@
 """
 下载国税网验证码，保存到dataset/captcha-images
 """
-
+import os
+import re
+import time
 import asyncio
 import base64
 import hashlib
-import os
 import pathlib
-import re
-import time
 
 import pandas as pd
+from loguru import logger
 from pyppeteer import launch
 
 root_dir = pathlib.Path(__file__).parent.parent.parent
@@ -28,9 +28,9 @@ class BrowserHandle:
     @staticmethod
     def _call_async_func(func, *args, **kwargs):
         loop = asyncio.get_event_loop()
-        task = asyncio.ensure_future(func(*args, **kwargs))
-        loop.run_until_complete(task)
-        return task.result()
+        _task = asyncio.ensure_future(func(*args, **kwargs))
+        loop.run_until_complete(_task)
+        return _task.result()
 
     def fill_basement(self, inv_code, inv_num, inv_date, inv_chk):
         return self._call_async_func(self._fill_basement, inv_code, inv_num, inv_date, inv_chk)
@@ -73,7 +73,6 @@ class BrowserHandle:
 
     async def _get_verify_code(self, max_wait_time=15, prev=None):
         """get verify code"""
-        print('get verify code...')
         default_str = 'https://inv-veri.chinatax.gov.cn/images/code.png'
         prev_str = prev if prev else default_str
         if prev_str != default_str:
@@ -82,17 +81,17 @@ class BrowserHandle:
         cnt = 0
         ele_yzm = await self.page.waitForXPath('//*[@id="yzm_img"]')
         yzm_base64_str = await (await ele_yzm.getProperty("src")).jsonValue()
-        curr_str = hashlib.md5(yzm_base64_str.encode('utf-8')).hexdigest()        
+        curr_str = hashlib.md5(yzm_base64_str.encode('utf-8')).hexdigest()
         while cnt < max_wait_time and curr_str == prev_str:
             time.sleep(1)
-            print(f'[{cnt}/{max_wait_time}]s wait verify image...')
+            logger.warning(f'[{cnt}/{max_wait_time}]s wait verify image...')
             ele_yzm = await self.page.waitForXPath('//*[@id="yzm_img"]')
             yzm_base64_str = await (await ele_yzm.getProperty("src")).jsonValue()
             prev_str = curr_str
             curr_str = hashlib.md5(yzm_base64_str.encode('utf-8')).hexdigest()
             cnt += 1
         if prev_str == curr_str:
-            print('ERROR!!!Can not get verify image!')
+            logger.error('ERROR!!!Can not get verify image!')
             return None, None
         ele_info = await self.page.waitForXPath('//*[@id="yzminfo"]')
         info = await (await ele_info.getProperty('textContent')).jsonValue()
@@ -107,37 +106,54 @@ class BrowserHandle:
             self._call_async_func(self.browser.close)
 
 
-def base64_to_img(base64_str, output_dir):
+def tip_to_channel(tip: str):
+    if "红色" in tip:
+        channel = "red"
+    elif "蓝色" in tip:
+        channel = "blue"
+    elif "黄色" in tip:
+        channel = "yellow"
+    elif tip == "请输入验证码文字":
+        channel = "black"
+    else:
+        raise ValueError(f"Unknown tip message:{tip}")
+    return channel
+
+
+def save_base64_img(base64_str: str, save_dir: str, tip: str):
     """base64对象转换为图片"""
-    print('保存结果...')
+    channel = tip_to_channel(tip)
+    file_path = f'{save_dir}/{channel}-{int(time.time() * 1000)}.png'
+    os.makedirs(save_dir, exist_ok=True)
+
+    logger.info(f'save captcha img to {file_path}')
     base64_data = re.sub('^data:image/.+;base64,', '', base64_str)
     byte_data = base64.b64decode(base64_data)
-    os.makedirs(output_dir, exist_ok=True)
-    with open(f'{output_dir}/{int(time.time()*1000)}.png', 'wb') as fb:
+    with open(file_path, 'wb') as fb:
         fb.write(byte_data)
 
 
-def task(idx, inv_code, inv_num, inv_date, inv_chk, output_dir):
-    print(f'[{idx}] check inv_code={inv_code}, inv_num={inv_num}...')
+def task(epoch_id, step_id, inv_code, inv_num, inv_date, inv_chk, save_dir):
+    logger.info(f'[epoch-{epoch_id} step-{step_id}] check inv_code={inv_code}, inv_num={inv_num}...')
     bh = BrowserHandle(debug=False)
     bh.fill_basement(inv_code, inv_num, inv_date, inv_chk)
     prev_str = None
-    for i in range(100):
-        print(f'inner loop {i+1}')
-        base64_img, info = bh.get_verify_code(prev=prev_str)
-        if not info:
+    refresh_times = 10
+    for i in range(refresh_times):
+        logger.info(f'[step-{step_id}] refresh times {i + 1}/{refresh_times}')
+        base64_img, tip = bh.get_verify_code(prev=prev_str)
+        if not tip:
             break
         prev_str = base64_img
-        base64_to_img(base64_img, output_dir)
-        print(f'Tip message:{info}')
+        save_base64_img(base64_img, save_dir, tip)
 
 
 if __name__ == '__main__':
     inv_data = pd.read_csv(root_dir / 'assets/inv_data.csv', dtype=str)
-    target_count = 100
+    epochs = 100
     output_dir = root_dir / 'dataset/origin'
-    for i in range(target_count):
-        for _, row in inv_data.iterrows():
+    for epoch in range(epochs):
+        for step, (_, row) in enumerate(inv_data.iterrows()):
             if pd.isna(row['发票代码']):
                 continue
-            task(i+1, row['发票代码'], row['发票号码'], row['开票日期'], row['验证码'], output_dir)
+            task(epoch, step, row['发票代码'], row['发票号码'], row['开票日期'], row['验证码'], output_dir)
