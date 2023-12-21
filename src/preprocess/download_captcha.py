@@ -133,14 +133,15 @@ def save_base64_img(base64_str: str, save_dir: str, tip: str):
         fb.write(byte_data)
 
 
-def task(epoch_id, step_id, inv_code, inv_num, inv_date, inv_chk, save_dir):
-    logger.info(f'[epoch-{epoch_id} step-{step_id}] check inv_code={inv_code}, inv_num={inv_num}...')
+def task(epoch_id, step_id, inv_code, inv_num, inv_date, inv_chk, save_dir, steps):
+    logger.info(f'[epoch{epoch_id} step{step_id}] check inv_code={inv_code}, inv_num={inv_num}...')
     bh = BrowserHandle(debug=False)
     bh.fill_basement(inv_code, inv_num, inv_date, inv_chk)
     prev_str = None
     refresh_times = 10
     for i in range(refresh_times):
-        logger.info(f'[step-{step_id}] refresh times {i + 1}/{refresh_times}')
+        index = epoch_id * (refresh_times * steps) + refresh_times * step_id + i
+        logger.info(f'[{index}] refresh times {i + 1}/{refresh_times}')
         base64_img, tip = bh.get_verify_code(prev=prev_str)
         if not tip:
             break
@@ -149,11 +150,12 @@ def task(epoch_id, step_id, inv_code, inv_num, inv_date, inv_chk, save_dir):
 
 
 if __name__ == '__main__':
-    inv_data = pd.read_csv(root_dir / 'assets/inv_data.csv', dtype=str)
+    inv_data = pd.read_csv(root_dir / 'assets/inv_data.csv', encoding="utf-8", dtype=str)
     epochs = 100
     output_dir = root_dir / 'dataset/origin'
     for epoch in range(epochs):
+        step_num = len(inv_data)
         for step, (_, row) in enumerate(inv_data.iterrows()):
             if pd.isna(row['发票代码']):
                 continue
-            task(epoch, step, row['发票代码'], row['发票号码'], row['开票日期'], row['验证码'], output_dir)
+            task(epoch, step, row['发票代码'], row['发票号码'], row['开票日期'], row['验证码'], output_dir, step_num)
