@@ -34,23 +34,23 @@ WANDB_NAME=
 # 用几卡训练
 GPUS=0,1,2,3
 
-if [[ !-z $DATASET_DIR ]]; then
+if [[ ! -z $DATASET_DIR ]]; then
     DATASET_DIR="--dataset_dir $DATASET_DIR"
 fi
 
-if [[ !-z $PRETRAINED ]]; then
+if [[ ! -z $PRETRAINED ]]; then
     PRETRAINED="--pretrained $PRETRAINED"
 fi
 
-if [[ !-z $SIMPLE_MODE ]]; then
+if [[ ! -z $SIMPLE_MODE ]]; then
     SIMPLE_MODE="--simple_mode"
 fi
 
-if [[ !-z $WANDB_MODE ]]; then
+if [[ ! -z $WANDB_MODE ]]; then
     WANDB_MODE="--wandb_mode $WANDB_MODE"
 fi
 
-if [[ !-z $WANDB_NAME ]]; then
+if [[ ! -z $WANDB_NAME ]]; then
     WANDB_NAME="--wandb_name $WANDB_NAME"
 fi
 
