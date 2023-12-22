@@ -61,6 +61,7 @@ class TagDialog(QDialog):
         lbox.addWidget(label)
         lbox.addWidget(QLabel(f"label or accept the prediction"))
         pred = QLabel(self.text)
+        pred.setStyleSheet(f"color: {channel}")
         pred.setFont(QFont("Arial", 16))
         lbox.addWidget(pred)
         layout.addLayout(lbox)
