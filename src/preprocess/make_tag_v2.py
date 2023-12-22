@@ -66,6 +66,9 @@ class TagDialog(QDialog):
         layout.addLayout(lbox)
 
         self.tag_input = QLineEdit()
+        self.tag_input.setFixedSize(200, 50)
+        self.tag_input.setFont(QFont("Arial", 20))
+        self.tag_input.setStyleSheet(f"color: {channel}")
         layout.addWidget(self.tag_input)
 
         # 创建一个按钮用于提交标签
@@ -126,6 +129,7 @@ class TagWindow(QWidget):
         self.test_ratio = test_ratio
 
         self.file_paths = glob(f"{self.dataset_dir}/*.png")
+        random.shuffle(self.file_paths)
         self.filename_map = {os.path.basename(file_path): file_path for file_path in self.file_paths}
 
         self.processed_num = len(glob(f"{self.target_dir}/*.png"))
