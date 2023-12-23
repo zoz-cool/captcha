@@ -225,8 +225,10 @@ def save_batch(results, output_dir: pathlib.Path, test_ratio=0.4, index=0):
     test_file = output_dir / "test.json"
     image_dir = output_dir.absolute() / "images"
     os.makedirs(image_dir, exist_ok=True)
+    channels = ["black", "red", "blue", "yellow"]
     for i, (img, label) in enumerate(results):
-        save_path = image_dir / f"{index + i:0>7d}-{label['text']}.png"
+        channel = random.choice([k for k in label if k in channels])
+        save_path = image_dir / f"{channel}-{index + i:0>7d}-{label[channel]}.png"
         img.save(save_path)
     train_records = []
     test_records = []
