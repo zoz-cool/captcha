@@ -15,6 +15,7 @@ import pathlib
 import click
 import requests
 from glob import glob
+from loguru import logger
 from PySide6.QtWidgets import QApplication, QListWidget, QHBoxLayout, QWidget, QPushButton, QLabel, QVBoxLayout, \
     QDialog, QLineEdit, QMessageBox, QProgressBar
 from PySide6.QtGui import QPixmap, QFont
@@ -233,6 +234,7 @@ class TagWindow(QWidget):
         channel = filename.split("-")[0]
         tag_filename = self.tag_filename(filename, tag, index, channel)
         target_file_path = self.target_dir / tag_filename
+        logger.info(f"move image from {os.path.basename(self.filename_map[filename])} to {target_file_path.name}")
         shutil.move(self.filename_map[filename], target_file_path)
         json_file = "train.json" if random.random() > self.test_ratio else "test.json"
         json_file_path = self.target_dir.parent / json_file
@@ -240,9 +242,9 @@ class TagWindow(QWidget):
         if json_file_path.exists():
             with open(json_file_path, "r", encoding="utf-8") as f:
                 json_list = json.load(f)
-        channel = filename.split("-")[0]
-
-        json_list.append({"path": self.target_dir.name + "/" + filename, channel: tag})
+        record = {"path": self.target_dir.name + "/" + tag_filename, channel: tag}
+        json_list.append(record)
+        logger.info(f"json record: {record}")
         with open(json_file_path, "w", encoding="utf-8") as f:
             json.dump(json_list, f, ensure_ascii=False, indent=4)
         return tag_filename
@@ -250,6 +252,7 @@ class TagWindow(QWidget):
     def select_item_based_on_ratio(self):
         # 计算每种样本的比例
         total = self.yellow_cnt + self.blue_cnt + self.black_cnt + self.red_cnt
+        total = max(total, 1)
         channels = ["yellow", "blue", "black", "red"]
         ratios = [self.yellow_cnt / total, self.blue_cnt / total, self.black_cnt / total, self.red_cnt / total]
         acc_ratios = [ratios[i - 1] + ratios[i] for i in range(1, 4)]
@@ -273,13 +276,13 @@ class TagWindow(QWidget):
             self.yellow_cnt += 1
             return selected_item
         elif channel == "yellow":
-            channel = "blue"
+            channel = random.choice(["blue", "black", "red"])
         if channel == "blue" and blue_items:
             selected_item = random.choice(blue_items)
             self.blue_cnt += 1
             return selected_item
         elif channel == "blue":
-            channel = "black"
+            channel = random.choice(["black", "red"])
         if channel == "black" and black_items:
             selected_item = random.choice(black_items)
             self.black_cnt += 1
