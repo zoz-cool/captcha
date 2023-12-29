@@ -262,8 +262,11 @@ class TagWindow(QWidget):
         self.processed_label = QLabel(f"Processed:{self.processed_list.count()}(Total {self.processed_num})")
 
         # function button
-        self.process_button = QPushButton("Start")
-        self.process_button.clicked.connect(self.process_file)
+        self.single_tag = QPushButton("Single Tag")
+        self.single_tag.clicked.connect(self.process_file)
+
+        self.multi_tag_btn = QPushButton("Multi Tag")
+        self.multi_tag_btn.clicked.connect(self.process_multi_tag)
 
         quit_button = QPushButton("Exit")
         quit_button.clicked.connect(QApplication.instance().quit)
@@ -278,7 +281,8 @@ class TagWindow(QWidget):
         v2 = QVBoxLayout()
 
         v2.addStretch(1)
-        v2.addWidget(self.process_button)
+        v2.addWidget(self.single_tag)
+        v2.addWidget(self.multi_tag_btn)
         v2.addWidget(quit_button)
         v2.addStretch(1)
         layout.addLayout(v2)
@@ -395,6 +399,10 @@ class TagWindow(QWidget):
         else:
             raise ValueError(
                 f"unknown channel: {channel}, {len(yellow_items)}, {len(blue_items)}, {len(black_items)}, {len(red_items)}")
+
+    def process_multi_tag(self):
+        self.multi_tag = True
+        self.process_file()
 
     def process_file(self):
         # if all file has been processed
