@@ -15,6 +15,7 @@ import pathlib
 import click
 import requests
 from glob import glob
+from loguru import logger
 from PySide6.QtWidgets import QApplication, QListWidget, QHBoxLayout, QWidget, QPushButton, QLabel, QVBoxLayout, \
     QDialog, QLineEdit, QMessageBox, QProgressBar
 from PySide6.QtGui import QPixmap, QFont
@@ -61,11 +62,15 @@ class TagDialog(QDialog):
         lbox.addWidget(label)
         lbox.addWidget(QLabel(f"label or accept the prediction"))
         pred = QLabel(self.text)
+        pred.setStyleSheet(f"color: {channel}")
         pred.setFont(QFont("Arial", 16))
         lbox.addWidget(pred)
         layout.addLayout(lbox)
 
         self.tag_input = QLineEdit()
+        self.tag_input.setFixedSize(200, 50)
+        self.tag_input.setFont(QFont("Arial", 20))
+        self.tag_input.setStyleSheet(f"color: {channel}")
         layout.addWidget(self.tag_input)
 
         # 创建一个按钮用于提交标签
@@ -126,10 +131,18 @@ class TagWindow(QWidget):
         self.test_ratio = test_ratio
 
         self.file_paths = glob(f"{self.dataset_dir}/*.png")
+        random.shuffle(self.file_paths)
         self.filename_map = {os.path.basename(file_path): file_path for file_path in self.file_paths}
 
-        self.processed_num = len(glob(f"{self.target_dir}/*.png"))
+        processed_files = [os.path.basename(file) for file in glob(f"{self.target_dir}/*.png")]
+        self.processed_num = len(processed_files)
         self.total_num = len(self.file_paths) + self.processed_num
+
+        # 各颜色标签的数量
+        self.yellow_cnt = sum(1 for key in processed_files if key.startswith("yellow"))
+        self.blue_cnt = sum(1 for key in processed_files if key.startswith("blue"))
+        self.black_cnt = sum(1 for key in processed_files if key.startswith("black"))
+        self.red_cnt = sum(1 for key in processed_files if key.startswith("red"))
 
         # ========UI布局============
         self.setWindowTitle('Make Tag Window')
@@ -143,7 +156,7 @@ class TagWindow(QWidget):
 
         # 创建两个标签
         self.unprocessed_label = QLabel(f"未处理:{self.unprocessed_list.count()}")
-        self.processed_label = QLabel(f"已处理:{self.processed_list.count()}")
+        self.processed_label = QLabel(f"已处理:{self.processed_list.count()}（总计{self.processed_num}）")
 
         # 创建一个按钮
         self.process_button = QPushButton("Start")
@@ -158,9 +171,13 @@ class TagWindow(QWidget):
         v1.addWidget(self.unprocessed_label)
         v1.addWidget(self.unprocessed_list)
         layout.addLayout(v1)
+
         v2 = QVBoxLayout()
+
+        v2.addStretch(1)
         v2.addWidget(self.process_button)
         v2.addWidget(quit_button)
+        v2.addStretch(1)
         layout.addLayout(v2)
 
         v3 = QVBoxLayout()
@@ -175,8 +192,35 @@ class TagWindow(QWidget):
         self.progress_bar.setMaximum(self.total_num)
         self.progress_bar.setFormat("Progress: %p%")
 
+        # 标签数量重
+        h2 = QHBoxLayout()
+        self.yellow_lab = QLabel(f"YELLOW: {self.yellow_cnt}")
+        self.yellow_lab.setStyleSheet("color: yellow")
+        self.yellow_lab.setFont(QFont("Arial", 16))
+        self.blue_lab = QLabel(f"BLUE: {self.blue_cnt}")
+        self.blue_lab.setStyleSheet("color: blue")
+        self.blue_lab.setFont(QFont("Arial", 16))
+        self.black_lab = QLabel(f"BLACK: {self.black_cnt}")
+        self.black_lab.setStyleSheet("color: black")
+        self.black_lab.setFont(QFont("Arial", 16))
+        self.red_lab = QLabel(f"RED: {self.red_cnt}")
+        self.red_lab.setStyleSheet("color: red")
+        self.red_lab.setFont(QFont("Arial", 16))
+
+        h2.addStretch(3)
+        h2.addWidget(self.yellow_lab)
+        h2.addStretch(1)
+        h2.addWidget(self.blue_lab)
+        h2.addStretch(1)
+        h2.addWidget(self.black_lab)
+        h2.addStretch(1)
+        h2.addWidget(self.red_lab)
+        h2.addStretch(3)
+
         vbox = QVBoxLayout()
         vbox.addWidget(self.progress_bar)
+        vbox.addLayout(h2)
+
         vbox.addLayout(layout)
 
         self.setLayout(vbox)
@@ -190,26 +234,75 @@ class TagWindow(QWidget):
         channel = filename.split("-")[0]
         tag_filename = self.tag_filename(filename, tag, index, channel)
         target_file_path = self.target_dir / tag_filename
+        logger.info(f"move image from {os.path.basename(self.filename_map[filename])} to {target_file_path.name}")
         shutil.move(self.filename_map[filename], target_file_path)
         json_file = "train.json" if random.random() > self.test_ratio else "test.json"
         json_file_path = self.target_dir.parent / json_file
         json_list = []
         if json_file_path.exists():
-            with open(json_file_path, "r") as f:
+            with open(json_file_path, "r", encoding="utf-8") as f:
                 json_list = json.load(f)
-        channel = filename.split("-")[0]
-
-        json_list.append({"path": self.target_dir.name + "/" + filename, channel: tag})
-        with open(json_file_path, "w") as f:
+        record = {"path": self.target_dir.name + "/" + tag_filename, channel: tag}
+        json_list.append(record)
+        logger.info(f"json record: {record}")
+        with open(json_file_path, "w", encoding="utf-8") as f:
             json.dump(json_list, f, ensure_ascii=False, indent=4)
         return tag_filename
+
+    def select_item_based_on_ratio(self):
+        # 计算每种样本的比例
+        total = self.yellow_cnt + self.blue_cnt + self.black_cnt + self.red_cnt
+        total = max(total, 1)
+        channels = ["yellow", "blue", "black", "red"]
+        ratios = [self.yellow_cnt / total, self.blue_cnt / total, self.black_cnt / total, self.red_cnt / total]
+        acc_ratios = [ratios[i - 1] + ratios[i] for i in range(1, 4)]
+        channel = channels[-1]
+        for i in range(4):
+            if acc_ratios[-1] * random.random() <= acc_ratios[i]:
+                channel = channels[i]
+                break
+        assert channel is not None, "channel is None"
+        # 根据比例随机选择元素
+        yellow_items = [self.unprocessed_list.item(i) for i in range(self.unprocessed_list.count()) if
+                        self.unprocessed_list.item(i).text().startswith('yellow')]
+        blue_items = [self.unprocessed_list.item(i) for i in range(self.unprocessed_list.count()) if
+                      self.unprocessed_list.item(i).text().startswith('blue')]
+        black_items = [self.unprocessed_list.item(i) for i in range(self.unprocessed_list.count()) if
+                       self.unprocessed_list.item(i).text().startswith('black')]
+        red_items = [self.unprocessed_list.item(i) for i in range(self.unprocessed_list.count()) if
+                     self.unprocessed_list.item(i).text().startswith('red')]
+        if channel == "yellow" and yellow_items:
+            selected_item = random.choice(yellow_items)
+            self.yellow_cnt += 1
+            return selected_item
+        elif channel == "yellow":
+            channel = random.choice(["blue", "black", "red"])
+        if channel == "blue" and blue_items:
+            selected_item = random.choice(blue_items)
+            self.blue_cnt += 1
+            return selected_item
+        elif channel == "blue":
+            channel = random.choice(["black", "red"])
+        if channel == "black" and black_items:
+            selected_item = random.choice(black_items)
+            self.black_cnt += 1
+            return selected_item
+        elif channel == "black":
+            channel = "red"
+        if channel == "red" and red_items:
+            selected_item = random.choice(red_items)
+            self.red_cnt += 1
+            return selected_item
+        else:
+            raise ValueError(
+                f"unknown channel: {channel}, {len(yellow_items)}, {len(blue_items)}, {len(black_items)}, {len(red_items)}")
 
     def process_file(self):
         # 检查未处理列表是否为空
 
         for i in range(self.processed_num, self.total_num):
             # 从未处理列表中取出一个文件
-            file_item = self.unprocessed_list.currentItem() or self.unprocessed_list.item(0)
+            file_item = self.select_item_based_on_ratio()
             filename = file_item.text()
             self.unprocessed_list.setCurrentItem(file_item)
 
@@ -227,8 +320,13 @@ class TagWindow(QWidget):
                 assert tag != "", "tag can not be empty"
                 tag_filename = self.save_image(filename, tag, i)
                 self.processed_list.addItem(tag_filename)
-                self.processed_label.setText(f"已处理:{self.processed_list.count()}")
+                self.processed_label.setText(
+                    f"已处理:{self.processed_list.count()}（总计{self.processed_list.count() + self.processed_num}）")
                 self.progress_bar.setValue(i)
+                self.yellow_lab.setText(f"YELLOW: {self.yellow_cnt}")
+                self.blue_lab.setText(f"BLUE: {self.blue_cnt}")
+                self.black_lab.setText(f"BLACK: {self.black_cnt}")
+                self.red_lab.setText(f"RED: {self.red_cnt}")
             elif result == QDialog.Rejected:
                 break
             elif result == 11:
@@ -237,6 +335,30 @@ class TagWindow(QWidget):
                 continue
             else:
                 raise ValueError("unknown result")
+
+
+dark_stylesheet = """
+    QWidget {
+        background-color: #2b2b2b;
+        color: #b1b1b1;
+    }
+    QLineEdit {
+        background-color: #353535;
+        color: #b1b1b1;
+    }
+    QPushButton {
+        background-color: #353535;
+        color: #b1b1b1;
+    }
+    QListWidget {
+        background-color: #353535;
+        color: #b1b1b1;
+    }
+    QProgressBar {
+        background-color: #353535;
+        color: #b1b1b1;
+    }
+"""
 
 
 @click.command()
@@ -250,6 +372,8 @@ def main(dataset_dir, output_dir, test_ratio, enable_pred):
     os.makedirs(save_dir, exist_ok=True)
 
     app = QApplication()
+    app.setStyleSheet(dark_stylesheet)
+
     win = TagWindow(dataset_dir, save_dir, test_ratio, enable_pred)
     win.show()
     app.exec()

@@ -155,6 +155,7 @@ if __name__ == '__main__':
     output_dir = root_dir / 'dataset/origin'
     for epoch in range(epochs):
         step_num = len(inv_data)
+        inv_data = inv_data.sample(frac=1).reset_index(drop=True)
         for step, (_, row) in enumerate(inv_data.iterrows()):
             if pd.isna(row['发票代码']):
                 continue
