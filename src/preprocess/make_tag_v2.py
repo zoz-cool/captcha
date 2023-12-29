@@ -20,6 +20,8 @@ from PySide6.QtWidgets import QApplication, QListWidget, QHBoxLayout, QWidget, Q
     QDialog, QLineEdit, QMessageBox, QProgressBar
 from PySide6.QtGui import QPixmap, QFont
 from PySide6.QtCore import QSize, Qt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
 
 root_dir = pathlib.Path(__file__).parent.parent.parent
 
@@ -29,19 +31,120 @@ def get_predict_label(img_path: str):
     return res.json()["data"][0]["label"]
 
 
+class MplCanvas(FigureCanvas):
+    def __init__(self, parent=None, width=5, height=4, dpi=100):
+        fig = Figure(figsize=(width, height), dpi=dpi, facecolor=None)
+        self.axes = fig.add_subplot(111)
+        super(MplCanvas, self).__init__(fig)
+
+
+class TagAllDialog(QDialog):
+    """one picture with multi tag"""
+
+    def __init__(self, img_path, enable_pred=False):
+        super().__init__()
+
+        self.img_path = img_path
+        self.enable_pred = enable_pred
+        # Layout
+        self.setWindowTitle('Make Multi-Tag Window')
+        self.setFixedSize(QSize(400, 400))
+
+        # make a new layout
+        layout = QVBoxLayout()
+
+        # make a label to show the image
+        scale = 2
+        self.img_label = QLabel()
+        self.img_label.setFixedSize(QSize(int(120 * scale), int(50 * scale)))
+        self.img_label.setScaledContents(True)
+
+        self.img_label.setPixmap(QPixmap(img_path))
+
+        layout.addWidget(self.img_label)
+        layout.addStretch(1)
+        # add all channel color input line
+        self.inputs = {}
+        for color in ["black", "red", "blue", "yellow"]:
+            hbox = QHBoxLayout()
+            label = QLabel(color.upper().ljust(15))
+            # label.setStyleSheet(f"color: {color}")
+            label.setFont(QFont("Arial", 16))
+            hbox.addWidget(label)
+            text_input = MyLineEdit()
+            text_input.setFixedSize(120, 30)
+            text_input.setFont(QFont("Arial", 16))
+            text_input.setStyleSheet(f"color: {color}")
+            self.inputs[color] = text_input
+            hbox.addWidget(text_input)
+            # hbox.addStretch(1)
+            layout.addLayout(hbox)
+
+        # layout.addStretch(1)
+        # function button
+        hbox2 = QHBoxLayout()
+        tag_button = QPushButton("tag it")
+        tag_button.clicked.connect(self.accept_tag)
+        auto_button = QPushButton("accept")
+        auto_button.clicked.connect(self.auto_tag)
+        skip_button = QPushButton("skip")
+        skip_button.clicked.connect(self.skip_tag)
+        stop_button = QPushButton("stop")
+        stop_button.clicked.connect(self.reject_tag)
+        hbox2.addWidget(tag_button)
+        hbox2.addWidget(auto_button)
+        hbox2.addWidget(skip_button)
+        hbox2.addWidget(stop_button)
+        layout.addLayout(hbox2)
+
+        self.setLayout(layout)
+
+    def auto_tag(self):
+        self.done(22)
+
+    def reject_tag(self):
+        self.reject()
+
+    def skip_tag(self):
+        self.done(11)
+
+    def accept_tag(self):
+        self.accept()
+
+    def get_tag(self):
+        # get user input tag
+        return {color: self.inputs[color].text().upper() for color in self.inputs}
+
+    def get_auto_tag(self):
+        return {color: get_predict_label(self.img_path) for color in self.inputs}
+
+    def keyPressEvent(self, event):
+        # check if press enter
+        if event.key() == Qt.Key_Return:
+            # if press enter, do the corresponding operation
+            self.accept_tag()
+
+
+class MyLineEdit(QLineEdit):
+    def __init__(self, *args, **kwargs):
+        super(MyLineEdit, self).__init__(*args, **kwargs)
+        self.textChanged.connect(self.on_text_changed)
+
+    def on_text_changed(self, text):
+        self.setText(text.upper())
+
+
 class TagDialog(QDialog):
     def __init__(self, img_path, enable_pred=False):
         super().__init__()
 
         self.enable_pred = enable_pred
-        # 布局
+        # Layout
         self.setWindowTitle('Make Tag Window')
         self.setFixedSize(QSize(400, 300))
 
-        # 创建一个布局
         layout = QVBoxLayout()
 
-        # 创建一个标签用于显示图片
         scale = 2
         self.img_label = QLabel()
         self.img_label.setFixedSize(QSize(int(120 * scale), int(50 * scale)))
@@ -51,7 +154,6 @@ class TagDialog(QDialog):
 
         layout.addWidget(self.img_label)
 
-        # 创建一个文本框用于输入标签
         channel = os.path.basename(img_path).split("-")[0]
         self.text = get_predict_label(img_path) if self.enable_pred else "-"
         lbox = QHBoxLayout()
@@ -67,13 +169,13 @@ class TagDialog(QDialog):
         lbox.addWidget(pred)
         layout.addLayout(lbox)
 
-        self.tag_input = QLineEdit()
+        self.tag_input = MyLineEdit()
         self.tag_input.setFixedSize(200, 50)
         self.tag_input.setFont(QFont("Arial", 20))
         self.tag_input.setStyleSheet(f"color: {channel}")
         layout.addWidget(self.tag_input)
 
-        # 创建一个按钮用于提交标签
+        # function buttons
         hbox = QHBoxLayout()
         tag_button = QPushButton("tag it")
         tag_button.clicked.connect(self.accept_tag)
@@ -107,25 +209,27 @@ class TagDialog(QDialog):
         self.accept()
 
     def get_tag(self):
-        # 获取用户输入的标签
-        return self.tag_input.text()
+        return self.tag_input.text().upper()
 
     def get_auto_tag(self):
         return self.text
 
     def keyPressEvent(self, event):
-        # 检查是否按下了回车键
         if event.key() == Qt.Key_Return:
-            # 如果按下了回车键，执行相应的操作
             self.accept_tag()
 
 
 class TagWindow(QWidget):
     def __init__(self, dataset_dir: pathlib.Path, target_dir: pathlib.Path, test_ratio: float = 0.4,
-                 enable_pred: bool = False):
+                 enable_pred: bool = False, multi_tag: bool = False):
         super().__init__()
 
+        # 创建一个新的MplCanvas实例
+        self.canvas = MplCanvas(self, width=3, height=2, dpi=100)
+        self.canvas.axes.axis('off')  # close the axis
+
         self.enable_pred = enable_pred
+        self.multi_tag = multi_tag
         self.dataset_dir = dataset_dir
         self.target_dir = target_dir
         self.test_ratio = test_ratio
@@ -138,34 +242,33 @@ class TagWindow(QWidget):
         self.processed_num = len(processed_files)
         self.total_num = len(self.file_paths) + self.processed_num
 
-        # 各颜色标签的数量
+        # count the number of each tag
         self.yellow_cnt = sum(1 for key in processed_files if key.startswith("yellow"))
         self.blue_cnt = sum(1 for key in processed_files if key.startswith("blue"))
         self.black_cnt = sum(1 for key in processed_files if key.startswith("black"))
         self.red_cnt = sum(1 for key in processed_files if key.startswith("red"))
 
-        # ========UI布局============
+        # ========UI Layout============
         self.setWindowTitle('Make Tag Window')
         self.setFixedSize(QSize(800, 600))
 
-        # 创建两个列表
+        # create two list
         self.unprocessed_list = QListWidget()
         self.processed_list = QListWidget()
-        # 将文件添加到未处理列表
+        # add all file name to the list
         self.unprocessed_list.addItems(list(self.filename_map.keys()))
 
-        # 创建两个标签
-        self.unprocessed_label = QLabel(f"未处理:{self.unprocessed_list.count()}")
-        self.processed_label = QLabel(f"已处理:{self.processed_list.count()}（总计{self.processed_num}）")
+        self.unprocessed_label = QLabel(f"Unprocessed:{self.unprocessed_list.count()}")
+        self.processed_label = QLabel(f"Processed:{self.processed_list.count()}(Total {self.processed_num})")
 
-        # 创建一个按钮
+        # function button
         self.process_button = QPushButton("Start")
         self.process_button.clicked.connect(self.process_file)
 
         quit_button = QPushButton("Exit")
         quit_button.clicked.connect(QApplication.instance().quit)
 
-        # 创建一个布局并添加列表和按钮
+        # layout
         layout = QHBoxLayout()
         v1 = QVBoxLayout()
         v1.addWidget(self.unprocessed_label)
@@ -185,57 +288,53 @@ class TagWindow(QWidget):
         v3.addWidget(self.processed_list)
         layout.addLayout(v3)
 
-        # 创建一个进度条
+        # progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setMinimum(0)
         self.progress_bar.setValue(self.processed_num)
         self.progress_bar.setMaximum(self.total_num)
         self.progress_bar.setFormat("Progress: %p%")
 
-        # 标签数量重
-        h2 = QHBoxLayout()
-        self.yellow_lab = QLabel(f"YELLOW: {self.yellow_cnt}")
-        self.yellow_lab.setStyleSheet("color: yellow")
-        self.yellow_lab.setFont(QFont("Arial", 16))
-        self.blue_lab = QLabel(f"BLUE: {self.blue_cnt}")
-        self.blue_lab.setStyleSheet("color: blue")
-        self.blue_lab.setFont(QFont("Arial", 16))
-        self.black_lab = QLabel(f"BLACK: {self.black_cnt}")
-        self.black_lab.setStyleSheet("color: black")
-        self.black_lab.setFont(QFont("Arial", 16))
-        self.red_lab = QLabel(f"RED: {self.red_cnt}")
-        self.red_lab.setStyleSheet("color: red")
-        self.red_lab.setFont(QFont("Arial", 16))
-
-        h2.addStretch(3)
-        h2.addWidget(self.yellow_lab)
-        h2.addStretch(1)
-        h2.addWidget(self.blue_lab)
-        h2.addStretch(1)
-        h2.addWidget(self.black_lab)
-        h2.addStretch(1)
-        h2.addWidget(self.red_lab)
-        h2.addStretch(3)
-
         vbox = QVBoxLayout()
         vbox.addWidget(self.progress_bar)
-        vbox.addLayout(h2)
+        # 将这个canvas添加到你的布局中
+        vbox.addWidget(self.canvas)
 
         vbox.addLayout(layout)
 
         self.setLayout(vbox)
+        self.update_figure()
 
     @staticmethod
     def tag_filename(filename, tag, idx, channel):
         suffix = filename.split(".")[-1]
         return f"{channel}-{tag}-{idx}.{suffix}"
 
-    def save_image(self, filename, tag, index):
-        channel = filename.split("-")[0]
+    def update_figure(self):
+        # 在这个函数中，你可以更新你的图形
+
+        sizes = [self.yellow_cnt, self.blue_cnt, self.black_cnt, self.red_cnt]
+        labels = ['Yellow', 'Blue', 'Black', 'Red']
+
+        self.canvas.axes.clear()
+        wedges, texts, autotexts = self.canvas.axes.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
+        self.canvas.axes.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+
+        # add annotation
+        # 添加每种颜色标签的具体数量
+        legend_labels = [f'{label}: {size}' for label, size in zip(labels, sizes)]
+        self.canvas.axes.legend(wedges, legend_labels, title="Colors", loc="center left",
+                                bbox_to_anchor=(0.8, 0, 0.5, 1))
+
+        self.canvas.draw()
+
+    def save_image(self, filename, tag, index, channel=None):
+        if channel is None:
+            channel = filename.split("-")[0]
         tag_filename = self.tag_filename(filename, tag, index, channel)
         target_file_path = self.target_dir / tag_filename
         logger.info(f"move image from {os.path.basename(self.filename_map[filename])} to {target_file_path.name}")
-        shutil.move(self.filename_map[filename], target_file_path)
+        shutil.copy(self.filename_map[filename], target_file_path)
         json_file = "train.json" if random.random() > self.test_ratio else "test.json"
         json_file_path = self.target_dir.parent / json_file
         json_list = []
@@ -250,7 +349,7 @@ class TagWindow(QWidget):
         return tag_filename
 
     def select_item_based_on_ratio(self):
-        # 计算每种样本的比例
+        # calculate the ratio of each channel
         total = self.yellow_cnt + self.blue_cnt + self.black_cnt + self.red_cnt
         total = max(total, 1)
         channels = ["yellow", "blue", "black", "red"]
@@ -262,7 +361,7 @@ class TagWindow(QWidget):
                 channel = channels[i]
                 break
         assert channel is not None, "channel is None"
-        # 根据比例随机选择元素
+        # select item based on channel randomly
         yellow_items = [self.unprocessed_list.item(i) for i in range(self.unprocessed_list.count()) if
                         self.unprocessed_list.item(i).text().startswith('yellow')]
         blue_items = [self.unprocessed_list.item(i) for i in range(self.unprocessed_list.count()) if
@@ -298,39 +397,47 @@ class TagWindow(QWidget):
                 f"unknown channel: {channel}, {len(yellow_items)}, {len(blue_items)}, {len(black_items)}, {len(red_items)}")
 
     def process_file(self):
-        # 检查未处理列表是否为空
-
+        # if all file has been processed
         for i in range(self.processed_num, self.total_num):
-            # 从未处理列表中取出一个文件
+            # select one item from the list
             file_item = self.select_item_based_on_ratio()
             filename = file_item.text()
             self.unprocessed_list.setCurrentItem(file_item)
 
-            # 处理文件
-            dialog = TagDialog(self.filename_map[filename], self.enable_pred)
+            # process the file
+            if self.multi_tag:
+                dialog = TagAllDialog(self.filename_map[filename], self.enable_pred)
+            else:
+                dialog = TagDialog(self.filename_map[filename], self.enable_pred)
             result = dialog.exec()
-            # 删除指定行的项
+            # remove the item from the list
             row = self.unprocessed_list.row(file_item)
             self.unprocessed_list.takeItem(row)
             self.unprocessed_list.setCurrentItem(self.unprocessed_list.item(0))
 
             if result == QDialog.Accepted or result == 22:
-                self.unprocessed_label.setText(f"未处理:{self.unprocessed_list.count()}")
+                self.unprocessed_label.setText(f"Unprocessed:{self.unprocessed_list.count()}")
                 tag = dialog.get_tag() if result == QDialog.Accepted else dialog.get_auto_tag()
                 assert tag != "", "tag can not be empty"
-                tag_filename = self.save_image(filename, tag, i)
-                self.processed_list.addItem(tag_filename)
+                if isinstance(tag, dict):
+                    for color in tag:
+                        if tag[color] == "":
+                            continue
+                        tag_filename = self.save_image(filename, tag[color], i, color)
+                        self.processed_list.addItem(tag_filename)
+                else:
+                    tag_filename = self.save_image(filename, tag, i)
+                    self.processed_list.addItem(tag_filename)
                 self.processed_label.setText(
-                    f"已处理:{self.processed_list.count()}（总计{self.processed_list.count() + self.processed_num}）")
+                    f"Processed:{self.processed_list.count()}(Total{self.processed_list.count() + self.processed_num})")
                 self.progress_bar.setValue(i)
-                self.yellow_lab.setText(f"YELLOW: {self.yellow_cnt}")
-                self.blue_lab.setText(f"BLUE: {self.blue_cnt}")
-                self.black_lab.setText(f"BLACK: {self.black_cnt}")
-                self.red_lab.setText(f"RED: {self.red_cnt}")
+                self.update_figure()  # update the color ratio figure
+                # remove the file from the origin folder
+                os.remove(self.filename_map[filename])
             elif result == QDialog.Rejected:
                 break
             elif result == 11:
-                self.unprocessed_label.setText(f"未处理:{self.unprocessed_list.count()}")
+                self.unprocessed_label.setText(f"Unprocessed:{self.unprocessed_list.count()}")
                 self.progress_bar.setValue(i)
                 continue
             else:
@@ -364,9 +471,10 @@ dark_stylesheet = """
 @click.command()
 @click.option("--dataset-dir", type=str, default="origin")
 @click.option("--output-dir", type=str, default="labeled")
-@click.option("--test-ratio", type=float, default=0.4)
-@click.option("--enable-pred", type=bool, default=False)
-def main(dataset_dir, output_dir, test_ratio, enable_pred):
+@click.option("--test-ratio", type=float, default=0.1)
+@click.option("--enable-pred", is_flag=True)
+@click.option("--multi-tag", is_flag=True)
+def main(dataset_dir, output_dir, test_ratio, enable_pred, multi_tag):
     dataset_dir = root_dir / "dataset" / dataset_dir
     save_dir = root_dir / "dataset" / output_dir / "images"
     os.makedirs(save_dir, exist_ok=True)
@@ -374,7 +482,7 @@ def main(dataset_dir, output_dir, test_ratio, enable_pred):
     app = QApplication()
     app.setStyleSheet(dark_stylesheet)
 
-    win = TagWindow(dataset_dir, save_dir, test_ratio, enable_pred)
+    win = TagWindow(dataset_dir, save_dir, test_ratio, enable_pred, multi_tag)
     win.show()
     app.exec()
 
