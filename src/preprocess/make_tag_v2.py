@@ -263,7 +263,7 @@ class TagWindow(QWidget):
 
         # function button
         self.single_tag = QPushButton("Single Tag")
-        self.single_tag.clicked.connect(self.process_file)
+        self.single_tag.clicked.connect(self.process_single_tag)
 
         self.multi_tag_btn = QPushButton("Multi Tag")
         self.multi_tag_btn.clicked.connect(self.process_multi_tag)
@@ -402,6 +402,10 @@ class TagWindow(QWidget):
 
     def process_multi_tag(self):
         self.multi_tag = True
+        self.process_file()
+
+    def process_single_tag(self):
+        self.multi_tag = False
         self.process_file()
 
     def process_file(self):
